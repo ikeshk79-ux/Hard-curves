@@ -65,9 +65,12 @@ def test_me_invalid_units(toks):
     assert r.status_code == 422
 
 
-def test_exercises_12(toks):
+def test_exercises_library_keeps_original_12(toks):
     r = requests.get(f"{API}/exercises", headers=H(toks, "athlete2"))
-    assert r.status_code == 200 and len(r.json()) == 12
+    ids = {e["id"] for e in r.json()}
+    original = {"bench-press", "incline-db-press", "overhead-triceps-ext", "weighted-pullup", "barbell-row", "lat-pulldown",
+                "back-squat", "romanian-deadlift", "standing-calf-raise", "seated-db-press", "cable-lateral-raise", "barbell-curl"}
+    assert r.status_code == 200 and len(ids) == 41 and original <= ids
 
 
 # --- Plan ---

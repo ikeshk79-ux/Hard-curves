@@ -37,6 +37,8 @@ export const useWorkouts = () => useGet("workouts", "/workouts");
 export const useMeasurements = () => useGet("measurements", "/measurements");
 export const usePhotos = () => useGet("photos", "/photos");
 export const useRecords = () => useGet("records", "/records");
+export const useProgrammes = () => useGet("programmes", "/programmes");
+export const useSplits = () => useGet("splits", "/splits");
 export const useGoals = () => useGet("goals", "/goals");
 export const useOwnerStats = (enabled) => useGet("owner-stats", "/owner/stats", enabled);
 export const useOwnerAthletes = (q, enabled) => useGet(["owner-athletes", q], `/owner/athletes?q=${encodeURIComponent(q)}`, enabled);

@@ -140,11 +140,11 @@ export default function LogWorkoutPage() {
           <label className="hc-label" htmlFor="session-date">Date</label>
           <input id="session-date" data-testid="session-date-input" type="date" max={todayISO()} className="hc-input mt-2" value={draft.date} onChange={(e) => patch({ date: e.target.value })} />
         </div>
-        {plan.days.length > 0 && (
+        {plan.days.some((d) => d.type !== "rest") && (
           <div className="sm:col-span-2">
             <div className="hc-label mb-2">Load a plan day</div>
             <div className="flex flex-wrap gap-2">
-              {plan.days.map((d) => (
+              {plan.days.filter((d) => d.type !== "rest").map((d) => (
                 <button key={d.id} data-testid={`log-load-day-${d.id}`} data-active={draft.day_id === d.id} onClick={() => setDraft(fromDay(d, exMap))} className="hc-chip">{d.name}</button>
               ))}
             </div>

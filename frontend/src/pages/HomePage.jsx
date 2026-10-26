@@ -2,13 +2,14 @@ import { Link } from "react-router-dom";
 import { Play, Flame, Weight, Ruler, ClipboardList, Lightbulb, ChevronRight } from "lucide-react";
 import { useMe, usePlan, useExercises, useWorkouts, useMeasurements } from "../lib/api";
 import { fmtVolume, fmtLen, fmtDate } from "../lib/units";
-import { tipOfTheDay, nextDay, partLabel } from "../lib/constants";
+import { tipOfTheDay, nextDay, partLabel, todayIsRest } from "../lib/constants";
 import { StatCard, SectionTitle, Empty, Loading } from "../components/Bits";
 
-const UpNext = ({ day, exercises }) => (
+const UpNext = ({ day, exercises, restToday }) => (
   <div data-testid="up-next-card" className="hc-card relative overflow-hidden p-5 sm:p-6">
     <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-hc-lime/10 blur-2xl" />
     <div className="hc-label text-hc-lime">Up next</div>
+    {restToday && <div data-testid="up-next-rest-today" className="mt-2 inline-block rounded-md bg-hc-raised px-2 py-1 text-xs text-hc-muted">Today is a rest & recovery day</div>}
     <div data-testid="up-next-day-name" className="hc-title mt-2 text-3xl">{day?.name || "No plan days"}</div>
     <div className="mt-4 flex flex-wrap gap-2">
       {(day?.exercise_ids || []).map((id) => (
@@ -60,7 +61,7 @@ export default function HomePage() {
 
       <div className="grid gap-6 lg:grid-cols-5">
         <div className="space-y-6 lg:col-span-3">
-          <UpNext day={day} exercises={exercises} />
+          <UpNext day={day} exercises={exercises} restToday={todayIsRest(plan)} />
           <div>
             <SectionTitle action={<Link to="/training" className="text-sm text-hc-lime">History</Link>}>Recent workouts</SectionTitle>
             <div data-testid="recent-workouts" className="space-y-2">

@@ -35,10 +35,30 @@ export const TIPS = [
 
 export const tipOfTheDay = () => TIPS[Math.floor(Date.now() / 86400000) % TIPS.length];
 
+export const MUSCLE_GROUPS = ["Chest", "Back", "Shoulders", "Biceps", "Triceps", "Forearms", "Quads", "Hamstrings", "Glutes", "Calves", "Abs & Core", "Traps"];
+export const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+export const todayWeekday = () => (new Date().getDay() + 6) % 7;
+export const isRest = (d) => d?.type === "rest";
+export const todayIsRest = (plan) => plan?.schedule === "weekly" && isRest(plan.days.find((d) => d.weekday === todayWeekday()));
+
 export const nextDay = (plan, workouts) => {
-  if (!plan?.days?.length) return null;
-  const last = (workouts || []).find((w) => w.completed && w.day_id && plan.days.some((d) => d.id === w.day_id));
-  if (!last) return plan.days[0];
-  const idx = plan.days.findIndex((d) => d.id === last.day_id);
-  return plan.days[(idx + 1) % plan.days.length];
+  const days = plan?.days || [];
+  const training = days.filter((d) => !isRest(d));
+  if (!training.length) return null;
+  if (plan.schedule === "weekly") {
+    const t = todayWeekday();
+    for (let i = 0; i < 7; i += 1) {
+      const d = days.find((x) => x.weekday === (t + i) % 7 && !isRest(x));
+      if (d) return d;
+    }
+    return training[0];
+  }
+  const last = (workouts || []).find((w) => w.completed && w.day_id && days.some((d) => d.id === w.day_id));
+  if (!last) return training[0];
+  const idx = days.findIndex((d) => d.id === last.day_id);
+  for (let i = 1; i <= days.length; i += 1) {
+    const d = days[(idx + i) % days.length];
+    if (!isRest(d)) return d;
+  }
+  return training[0];
 };

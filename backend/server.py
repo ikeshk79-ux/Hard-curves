@@ -23,15 +23,17 @@ load_dotenv(ROOT_DIR / '.env')
 
 try:
     from backend.clerk_auth import clerk_router, require_user
-    from backend.defaults import EXERCISES, EXERCISE_IDS, DEFAULT_DAYS, DEFAULT_PLAN_NAME, BODY_PARTS, SIDES, side_ok
+    from backend.defaults import EXERCISES, EXERCISE_IDS, DEFAULT_DAYS, DEFAULT_PLAN_NAME, BODY_PARTS, SIDES, side_ok, MUSCLE_GROUPS
     from backend import storage, weekly
+    from backend import programmes as prog
     from backend.stats import set_counts, workout_volume, best_loads, goal_progress, goal_key
     from backend.emailer import send_email, EmailUnavailable
 except ModuleNotFoundError:
     from clerk_auth import clerk_router, require_user
-    from defaults import EXERCISES, EXERCISE_IDS, DEFAULT_DAYS, DEFAULT_PLAN_NAME, BODY_PARTS, SIDES, side_ok
+    from defaults import EXERCISES, EXERCISE_IDS, DEFAULT_DAYS, DEFAULT_PLAN_NAME, BODY_PARTS, SIDES, side_ok, MUSCLE_GROUPS
     import storage
     import weekly
+    import programmes as prog
     from stats import set_counts, workout_volume, best_loads, goal_progress, goal_key
     from emailer import send_email, EmailUnavailable
 
@@ -129,12 +131,19 @@ async def touch(uid: str):
 
 
 async def get_plan(uid: str) -> dict:
-    plan = await db.plans.find_one({"user_id": uid}, {"_id": 0})
-    if plan is None:
-        plan = {"user_id": uid, "name": DEFAULT_PLAN_NAME, "days": DEFAULT_DAYS, "updated_at": now_iso()}
-        await db.plans.update_one({"user_id": uid}, {"$setOnInsert": plan}, upsert=True)
-        plan = await db.plans.find_one({"user_id": uid}, {"_id": 0})
-    return plan
+    """The athlete's active programme; seeds the default one on first use."""
+    plan = await db.plans.find_one({"user_id": uid, "active": True}, {"_id": 0})
+    if plan:
+        return plan
+    other = await db.plans.find_one({"user_id": uid}, {"_id": 0}, sort=[("created_at", 1)])
+    if other:
+        await db.plans.update_one({"user_id": uid, "id": other["id"]}, {"$set": {"active": True}})
+        return {**other, "active": True}
+    now = now_iso()
+    seed = {"user_id": uid, "name": DEFAULT_PLAN_NAME, "days": [prog.norm_day(d) for d in DEFAULT_DAYS], "active": True,
+            "split": "custom", "schedule": "rotation", "priorities": {}, "created_at": now, "updated_at": now}
+    await db.plans.update_one({"user_id": uid, "id": f"default-{uid}"}, {"$setOnInsert": seed}, upsert=True)
+    return await db.plans.find_one({"user_id": uid, "id": f"default-{uid}"}, {"_id": 0})
 
 
 def public_me(member: dict, plan: dict) -> dict:
@@ -159,14 +168,29 @@ class MeUpdate(BaseModel):
 
 
 class DayIn(BaseModel):
-    id: Optional[str] = None
+    id: Optional[str] = Field(None, max_length=40)
     name: str = Field(min_length=1, max_length=60)
-    exercise_ids: List[str] = []
+    type: str = Field("training", pattern="^(training|rest)$")
+    muscle_groups: Optional[List[str]] = Field(None, max_length=12)
+    exercise_ids: List[str] = Field([], max_length=40)
+    weekday: Optional[int] = Field(None, ge=0, le=6)
 
 
 class PlanIn(BaseModel):
     name: str = Field(min_length=1, max_length=60)
-    days: List[DayIn] = Field(min_length=1, max_length=14)
+    days: List[DayIn] = Field(min_length=1, max_length=60)
+    split: Optional[str] = None
+    schedule: Optional[str] = Field(None, pattern="^(rotation|weekly)$")
+    priorities: Optional[dict] = None
+
+
+class ProgrammeCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=60)
+    split: str = "custom"
+
+
+class DayExerciseIn(BaseModel):
+    exercise_id: str
 
 
 class SetIn(BaseModel):
@@ -237,8 +261,8 @@ async def update_me(body: MeUpdate, member: dict = Depends(current_member)):
     if fields:
         await db.users.update_one({"user_id": uid}, {"$set": fields})
     if body.plan_name:
-        await get_plan(uid)
-        await db.plans.update_one({"user_id": uid}, {"$set": {"name": body.plan_name.strip(), "updated_at": now_iso()}})
+        plan = await get_plan(uid)
+        await db.plans.update_one({"user_id": uid, "id": plan["id"]}, {"$set": {"name": body.plan_name.strip(), "updated_at": now_iso()}})
     await touch(uid)
     member = await db.users.find_one({"user_id": uid}, {"_id": 0})
     return public_me({**member, "role": effective_role(member.get("role"))}, await get_plan(uid))
@@ -254,14 +278,118 @@ async def read_plan(member: dict = Depends(current_member)):
     return await get_plan(member["user_id"])
 
 
+async def write_programme(uid: str, pid: str, body: PlanIn) -> dict:
+    if body.split is not None and body.split not in prog.SPLITS:
+        raise HTTPException(status_code=422, detail="Unknown split")
+    pri = body.priorities or {}
+    if any(k not in MUSCLE_GROUPS or v not in prog.PRIORITY_LEVELS for k, v in pri.items()):
+        raise HTTPException(status_code=422, detail="Unknown muscle group or priority")
+    if any(g not in MUSCLE_GROUPS for d in body.days for g in (d.muscle_groups or [])):
+        raise HTTPException(status_code=422, detail="Unknown muscle group")
+    days, seen = [], set()
+    for d in body.days:
+        nd = prog.norm_day(d.model_dump())
+        if nd["id"] in seen:
+            nd["id"] = prog.new_day_id()
+        seen.add(nd["id"])
+        days.append(nd)
+    fields = {"name": body.name.strip(), "days": days, "priorities": pri, "updated_at": now_iso()}
+    if body.split is not None:
+        fields["split"] = body.split
+    if body.schedule is not None:
+        fields["schedule"] = body.schedule
+    res = await db.plans.update_one({"user_id": uid, "id": pid}, {"$set": fields})
+    if res.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Programme not found")
+    await touch(uid)
+    return await db.plans.find_one({"user_id": uid, "id": pid}, {"_id": 0})
+
+
 @api_router.put("/plan")
 async def save_plan(body: PlanIn, member: dict = Depends(current_member)):
+    plan = await get_plan(member["user_id"])
+    return await write_programme(member["user_id"], plan["id"], body)
+
+
+@api_router.get("/programmes")
+async def list_programmes(member: dict = Depends(current_member)):
+    await get_plan(member["user_id"])
+    return await db.plans.find({"user_id": member["user_id"]}, {"_id": 0}).sort("created_at", 1).to_list(100)
+
+
+@api_router.get("/splits")
+async def list_splits(member: dict = Depends(current_member)):
+    return [{"id": k, "label": v[0], "days": [n for n, _ in v[1]]} for k, v in prog.SPLITS.items()]
+
+
+@api_router.post("/programmes")
+async def create_programme(body: ProgrammeCreate, member: dict = Depends(current_member)):
+    if body.split not in prog.SPLITS:
+        raise HTTPException(status_code=422, detail="Unknown split")
     uid = member["user_id"]
-    days = [{"id": d.id or f"day-{uuid.uuid4().hex[:8]}", "name": d.name.strip(),
-             "exercise_ids": [e for e in d.exercise_ids if e in EXERCISE_IDS]} for d in body.days]
-    await db.plans.update_one({"user_id": uid}, {"$set": {"user_id": uid, "name": body.name.strip(), "days": days, "updated_at": now_iso()}}, upsert=True)
+    if await db.plans.count_documents({"user_id": uid}) >= 50:
+        raise HTTPException(status_code=422, detail="You can keep up to 50 programmes")
+    now = now_iso()
+    doc = {"id": str(uuid.uuid4()), "user_id": uid, "name": body.name.strip(), "split": body.split, "schedule": "rotation",
+           "priorities": {}, "days": prog.template_days(body.split), "active": False, "created_at": now, "updated_at": now}
+    await db.plans.insert_one({**doc})
     await touch(uid)
-    return await get_plan(uid)
+    return doc
+
+
+@api_router.put("/programmes/{pid}")
+async def update_programme(pid: str, body: PlanIn, member: dict = Depends(current_member)):
+    return await write_programme(member["user_id"], pid, body)
+
+
+@api_router.post("/programmes/{pid}/duplicate")
+async def duplicate_programme(pid: str, member: dict = Depends(current_member)):
+    uid = member["user_id"]
+    src = await db.plans.find_one({"user_id": uid, "id": pid}, {"_id": 0})
+    if not src:
+        raise HTTPException(status_code=404, detail="Programme not found")
+    now = now_iso()
+    doc = {**src, "id": str(uuid.uuid4()), "name": f"{src['name']} (copy)"[:60], "active": False,
+           "days": [{**d, "id": prog.new_day_id()} for d in src["days"]], "created_at": now, "updated_at": now}
+    await db.plans.insert_one({**doc})
+    await touch(uid)
+    return doc
+
+
+@api_router.post("/programmes/{pid}/activate")
+async def activate_programme(pid: str, member: dict = Depends(current_member)):
+    uid = member["user_id"]
+    if not await db.plans.find_one({"user_id": uid, "id": pid}):
+        raise HTTPException(status_code=404, detail="Programme not found")
+    await db.plans.update_many({"user_id": uid, "id": {"$ne": pid}}, {"$set": {"active": False}})
+    await db.plans.update_one({"user_id": uid, "id": pid}, {"$set": {"active": True}})
+    await touch(uid)
+    return await db.plans.find_one({"user_id": uid, "id": pid}, {"_id": 0})
+
+
+@api_router.delete("/programmes/{pid}")
+async def delete_programme(pid: str, member: dict = Depends(current_member)):
+    uid = member["user_id"]
+    if await db.plans.count_documents({"user_id": uid}) <= 1:
+        raise HTTPException(status_code=422, detail="Keep at least one programme")
+    if (await db.plans.delete_one({"user_id": uid, "id": pid})).deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Programme not found")
+    await get_plan(uid)
+    await touch(uid)
+    return {"ok": True}
+
+
+@api_router.post("/programmes/{pid}/days/{day_id}/exercises")
+async def add_day_exercise(pid: str, day_id: str, body: DayExerciseIn, member: dict = Depends(current_member)):
+    """Append one exercise to a day (used by the muscle selector)."""
+    if body.exercise_id not in EXERCISE_IDS:
+        raise HTTPException(status_code=422, detail="Unknown exercise")
+    res = await db.plans.update_one({"user_id": member["user_id"], "id": pid, "days.id": day_id},
+                                    {"$addToSet": {"days.$.exercise_ids": body.exercise_id}, "$set": {"updated_at": now_iso()}})
+    if res.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Day not found")
+    await touch(member["user_id"])
+    return await db.plans.find_one({"user_id": member["user_id"], "id": pid}, {"_id": 0})
 
 
 @api_router.get("/workouts")
@@ -433,6 +561,7 @@ async def export_data(member: dict = Depends(current_member)):
         "measurements": await db.measurements.find({"user_id": uid}, {"_id": 0}).to_list(5000),
         "photos": await db.photos.find({"user_id": uid, "is_deleted": False}, PHOTO_FIELDS).to_list(2000),
         "goals": await db.goals.find({"user_id": uid}, {"_id": 0}).to_list(100),
+        "programmes": await db.plans.find({"user_id": uid}, {"_id": 0}).to_list(100),
         "body_weights": await db.body_weights.find({"user_id": uid}, {"_id": 0}).to_list(5000),
     }
 
@@ -443,7 +572,7 @@ async def reset_data(member: dict = Depends(current_member)):
     await db.workouts.delete_many({"user_id": uid})
     await db.measurements.delete_many({"user_id": uid})
     await db.photos.update_many({"user_id": uid}, {"$set": {"is_deleted": True}})
-    await db.plans.delete_one({"user_id": uid})
+    await db.plans.delete_many({"user_id": uid})
     await db.goals.delete_many({"user_id": uid})
     await db.body_weights.delete_many({"user_id": uid})
     await get_plan(uid)
@@ -605,7 +734,7 @@ async def owner_athlete(user_id: str, admin: dict = Depends(require_role("admin"
     workouts = await db.workouts.find({"user_id": user_id}, {"_id": 0}).sort([("date", -1), ("created_at", -1)]).to_list(5000)
     measurements = await db.measurements.find({"user_id": user_id}, {"_id": 0}).sort([("date", -1), ("created_at", -1)]).to_list(5000)
     photos = await db.photos.find({"user_id": user_id, "is_deleted": False}, PHOTO_FIELDS).sort([("date", -1), ("created_at", -1)]).to_list(2000)
-    plan = await db.plans.find_one({"user_id": user_id}, {"_id": 0})
+    plan = await db.plans.find_one({"user_id": user_id, "active": True}, {"_id": 0})
     done = [w for w in workouts if w.get("completed")]
     return {
         "athlete": {"user_id": user_id, "display_name": u.get("display_name") or u.get("name"), "email": u.get("email"),
@@ -634,6 +763,10 @@ async def startup():
     for old, new in RETIRED_ROLES.items():
         await db.users.update_many({"role": old}, {"$set": {"role": new}})
     await db.users.create_index("user_id", unique=True)
+    now = now_iso()
+    async for doc in db.plans.find({"id": {"$exists": False}}):
+        await db.plans.update_one({"_id": doc["_id"], "id": {"$exists": False}}, {"$set": prog.legacy_fields(doc, now)})
+    await db.plans.create_index([("user_id", 1), ("id", 1)], unique=True)
     await db.workouts.create_index([("user_id", 1), ("date", -1)])
     await db.measurements.create_index([("user_id", 1), ("date", -1)])
     await db.photos.create_index([("user_id", 1), ("date", -1)])
