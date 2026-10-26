@@ -1,0 +1,169 @@
+{
+  "project_name": "Hard Curves",
+  "app_type": "mobile_web_app / dashboard",
+  "emotional_archetype": "ARCHETYPE 2: THE PERFORMANCE PRO (Elite Athleticism & Precision)",
+  "theme": {
+    "mode": "dark",
+    "background": "#101113",
+    "surface_cards": "#181A1E",
+    "surface_elevated": "#22252B",
+    "borders": "#2B2E34",
+    "text_primary": "#F3F4F6",
+    "text_muted": "#8E949E",
+    "accent_lime": "#C8F169",
+    "text_on_lime": "#171A12",
+    "accent_danger": "#EF4444",
+    "accent_warning": "#F59E0B"
+  },
+  "brand_mark": {
+    "icon": "Dumbbell",
+    "badge_bg": "#C8F169",
+    "badge_icon_color": "#171A12",
+    "title_text": "HARD ",
+    "title_accent": "CURVES",
+    "description": "Lime square icon box with dark dumbbell icon, bold typography with CURVES highlighted in lime (#C8F169)."
+  },
+  "typography": {
+    "heading_font": "Barlow Condensed, Impact, sans-serif (900/800 weight, uppercase, tracking-tight)",
+    "body_font": "Inter, system-ui, sans-serif",
+    "mono_font": "JetBrains Mono, monospace (for rest timer, set weight/reps inputs, volume stats)",
+    "scale": {
+      "h1": "text-3xl sm:text-5xl font-black uppercase tracking-tight",
+      "h2": "text-2xl sm:text-3xl font-extrabold uppercase tracking-tight",
+      "h3": "text-xl sm:text-2xl font-bold uppercase tracking-tight",
+      "h4": "text-lg font-bold uppercase tracking-wide text-zinc-300",
+      "body": "text-sm sm:text-base text-zinc-300 leading-relaxed",
+      "small_label": "text-xs font-semibold uppercase tracking-widest text-zinc-400"
+    }
+  },
+  "layout_and_navigation": {
+    "shell": "Mobile-first web app with persistent bottom navigation bar on mobile (5 primary tabs: Home, Training, Log, Measurements, Progress) and side drawer/desktop top bar with quick access to Photos, Profile, and hidden Owner area.",
+    "bottom_nav": {
+      "height": "h-16",
+      "bg": "bg-[#181A1E]/95 backdrop-blur-md border-t border-[#2B2E34]",
+      "active_tab": "text-[#C8F169] bg-[#22252B] rounded-lg",
+      "inactive_tab": "text-[#8E949E] hover:text-[#F3F4F6]"
+    },
+    "header": {
+      "bg": "bg-[#101113]/90 backdrop-blur-md border-b border-[#2B2E34] sticky top-0 z-40",
+      "padding": "px-4 py-3",
+      "elements": "Brand mark logo, active workout indicator pulse badge if active, quick start workout CTA, user profile avatar menu"
+    }
+  },
+  "pages": {
+    "sign_in": {
+      "route": "/login",
+      "features": [
+        "Google Sign-In only button (styled as dark/lime athletic button with Google icon)",
+        "Hard Curves high-impact branding tagline: 'Precision Bodybuilding & Volume Tracking'",
+        "High-contrast hero gym backdrop with subtle dark radial gradient",
+        "Demo fast-track account switcher (Bodybuilder Athlete vs Gym Owner view)"
+      ]
+    },
+    "home": {
+      "route": "/",
+      "features": [
+        "Welcome header with user name and active training phase badge",
+        "Start Workout hero CTA banner in lime (#C8F169) with high contrast tap area",
+        "Stat cards grid (4 cards): Sessions completed, Total volume (lbs/kg), Latest Arm Size (in/cm), Active Plan name",
+        "Up Next Card: Today's planned workout session with exercise preview",
+        "5 Latest Measurements mini table/horizontal scroll cards",
+        "3 Recent Workouts log summary cards",
+        "Daily Training Tip card (Bodybuilding science / hypertrophy advice)"
+      ]
+    },
+    "training": {
+      "route": "/training",
+      "features": [
+        "Editable Plan selector & split builder (e.g. Push/Pull/Legs 6-day split)",
+        "Training Days manager (add/remove exercise blocks, target rep ranges, RIR guidelines)",
+        "Starter Exercise Library (12 predefined core bodybuilder movements: Barbell Bench, Incline DB Press, Squat, Romanian Deadlift, Lat Pulldown, Barbell Row, Overhead DB Extension, Cable Lateral Raise, Preacher Curl, Calf Raise, Standing DB Curl, Leg Extension)",
+        "Workout history list with expandable details"
+      ]
+    },
+    "log_workout": {
+      "route": "/log",
+      "features": [
+        "Active session banner with live elapsed timer",
+        "Set logging table per exercise: Set #, Prev Best, Load input, Reps input, Target RIR select, Checkbox Done toggle",
+        "Large touch targets for fast set completion at the gym",
+        "Floating/Sticky Rest Timer bar: countdown timer with -15s, +15s, Skip buttons, sound/vibration alert animation",
+        "PR Card Trigger: Instant celebration modal/card whenever user hits a personal record load or volume"
+      ]
+    },
+    "measurements": {
+      "route": "/measurements",
+      "features": [
+        "New Measurement log form: body part dropdown (Arms, Chest, Waist, Thighs, Calves, Shoulders), side (Left/Right/Both), value, date, Flexed toggle, Pumped toggle, notes",
+        "Body Part Filter Chips (All, Arms, Chest, Waist, Thighs)",
+        "Historical log table with flexed/pumped badges and deletion options"
+      ]
+    },
+    "progress": {
+      "route": "/progress",
+      "features": [
+        "Summary KPIs (Total Weight Lifted, Workouts Done, PRs Shattered)",
+        "Body Part Measurement Bar/Line Chart (Recharts) with date range filters",
+        "Total Weekly Volume Chart (Recharts stacked/bar chart)",
+        "Personal Records (PR) grid with 'Share PR Card' modal generator"
+      ]
+    },
+    "photos": {
+      "route": "/photos",
+      "features": [
+        "Progress Photos Grid (filterable by date/phase)",
+        "Side-by-Side Compare Tool: Select Photo A (Before) vs Photo B (After) with slider or dual canvas frame",
+        "Upload new photo modal with tag (Flexed, Front Relaxed, Back Double Bicep)"
+      ]
+    },
+    "pr_card": {
+      "route": "modal / component",
+      "features": [
+        "Square branded image ready for export/download/sharing",
+        "Dark sleek carbon background, bold lime border, 'HARD CURVES' top brand mark",
+        "'NEW PERSONAL RECORD' banner in electric lime",
+        "Exercise name, load/reps breakdown, date, user handle"
+      ]
+    },
+    "profile": {
+      "route": "/profile",
+      "features": [
+        "Athlete Profile details (Name, Bodyweight target, Preferred units: LBS / KG)",
+        "Data Export: Export full workout & measurement history as JSON",
+        "Reset Local Data button with confirm modal",
+        "Sign out button",
+        "Owner area portal link (if logged in as admin/owner)"
+      ]
+    },
+    "owner": {
+      "route": "/owner",
+      "features": [
+        "Hidden/Protected Owner Area accessible via direct link or profile link",
+        "App Totals Overview: Total registered athletes, Total workouts logged, Total volume across app",
+        "Athletes Table: List of users, last active date, workout count, latest arm measurement",
+        "Read-only Athlete Detail drawer/view to audit athlete workouts & log history"
+      ]
+    }
+  },
+  "interactive_elements_and_ux": {
+    "tap_targets": "Minimum 48px height on mobile inputs and buttons to ensure painless tap accuracy during intense workouts.",
+    "set_table_inputs": "Large numeric input fields with auto-select on focus for fast load/rep adjustments.",
+    "rest_timer": "High-contrast JetBrains Mono digital clock overlay. Sticky at bottom right or top header when running.",
+    "toasts": "Sonner toast notifications on set completed, PR broken, measurement saved, and JSON exported."
+  },
+  "media_urls": {
+    "gym_hero_background": "https://images.unsplash.com/photo-1686230399946-8cfdb71f4f07?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NTYxODd8MHwxfHNlYXJjaHw0fHxib2R5YnVpbGRlciUyMGd5bSUyMHRyYWluaW5nJTIwd29ya291dHxlbnwwfHx8fDE3OTMwMzE5ODV8MA&ixlib=rb-4.1.0&q=85",
+    "gym_dumbbell_workout": "https://images.unsplash.com/photo-1641337221253-fdc7237f6b61?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NTYxODd8MHwxfHNlYXJjaHwxfHxib2R5YnVpbGRlciUyMGd5bSUyMHRyYWluaW5nJTIwd29ya291dHxlbnwwfHx8fDE3OTMwMzE5ODV8MA&ixlib=rb-4.1.0&q=85",
+    "gym_dark_atmosphere": "https://images.unsplash.com/photo-1554344728-77cf90d9ed26?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NTYxODd8MHwxfHNlYXJjaHwyfHxib2R5YnVpbGRlciUyMGd5bSUyMHRyYWluaW5nJTIwd29ya291dHxlbnwwfHx8fDE3OTMwMzE5ODV8MA&ixlib=rb-4.1.0&q=85",
+    "gym_heavy_lifting": "https://images.unsplash.com/photo-1632781297772-1d68f375d878?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NTYxODd8MHwxfHNlYXJjaHwzfHxib2R5YnVpbGRlciUyMGd5bSUyMHRyYWluaW5nJTIwd29ya291dHxlbnwwfHx8fDE3OTMwMzE5ODV8MA&ixlib=rb-4.1.0&q=85"
+  },
+  "data_testid_guidelines": "ALL interactive buttons, inputs, tabs, timer controls, table rows, and modals MUST include clear descriptive data-testid attributes (e.g. data-testid='start-workout-button', data-testid='rest-timer-plus15', data-testid='set-done-checkbox-1', data-testid='share-pr-modal').",
+  "instructions_to_main_agent": [
+    "Strictly follow the dark athletic visual hierarchy with lime #C8F169 as the primary highlight color.",
+    "Use Lucide icons (Dumbbell, Flame, Trophy, Timer, LineChart, Camera, User, Shield, Check, Plus, Minus, Share2).",
+    "Ensure state persistence using localStorage so user workouts, custom exercises, measurements, and photos persist across refreshes.",
+    "Implement high quality Recharts components with dark tooltips and lime line/bar indicators for progress metrics.",
+    "Add sample data out-of-the-box so the app looks populated with realistic bodybuilder stats on first load.",
+    "Ensure all test attributes (data-testid) are present across all 8 views and sub-components."
+  ]
+}

@@ -1,0 +1,25 @@
+export const BODY_PARTS = ["Arms", "Forearms", "Chest", "Shoulders", "Back", "Thighs", "Calves"];
+export const SIDES = ["Right", "Left", "Both", "Midline"];
+
+export const TIPS = [
+  "Leave 1–2 reps in reserve on compounds; take isolation work closer to failure.",
+  "Control the eccentric for 2–3 seconds — the stretch under load drives growth.",
+  "Add load only when you hit the top of the rep range on every working set.",
+  "Measure arms at the same spot, same time of day, same pump state — like for like.",
+  "Rest long enough to repeat performance: 2–3 minutes on heavy compounds is not lazy.",
+  "Track your best set per exercise. If it stalls three sessions in a row, change something.",
+  "Sleep is a training variable. Seven to nine hours is where recovery happens.",
+  "Hit each muscle twice a week with quality volume rather than once with junk sets.",
+  "Progress photos in the same light and pose beat the mirror every time.",
+  "Warm-up sets prime the groove — they don't count toward your working volume.",
+];
+
+export const tipOfTheDay = () => TIPS[Math.floor(Date.now() / 86400000) % TIPS.length];
+
+export const nextDay = (plan, workouts) => {
+  if (!plan?.days?.length) return null;
+  const last = (workouts || []).find((w) => w.completed && w.day_id && plan.days.some((d) => d.id === w.day_id));
+  if (!last) return plan.days[0];
+  const idx = plan.days.findIndex((d) => d.id === last.day_id);
+  return plan.days[(idx + 1) % plan.days.length];
+};
