@@ -1,6 +1,7 @@
 import os
 import re
 import uuid
+import hmac
 import logging
 from pathlib import Path
 from datetime import datetime, timezone, timedelta, date as date_cls
@@ -8,12 +9,14 @@ from typing import List, Optional
 
 import requests
 from dotenv import load_dotenv
-from fastapi import FastAPI, APIRouter, Depends, HTTPException, UploadFile, File, Form, Response
+from fastapi import FastAPI, APIRouter, Depends, HTTPException, UploadFile, File, Form, Response, Request, BackgroundTasks
 from starlette.concurrency import run_in_threadpool
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel, Field
 from pymongo import ReturnDocument
+from pymongo.errors import DuplicateKeyError
+from zoneinfo import ZoneInfo, available_timezones
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -21,11 +24,16 @@ load_dotenv(ROOT_DIR / '.env')
 try:
     from backend.clerk_auth import clerk_router, require_user
     from backend.defaults import EXERCISES, EXERCISE_IDS, DEFAULT_DAYS, DEFAULT_PLAN_NAME, BODY_PARTS, SIDES
-    from backend import storage
+    from backend import storage, weekly
+    from backend.stats import set_counts, workout_volume, best_loads, goal_progress, goal_key
+    from backend.emailer import send_email, EmailUnavailable
 except ModuleNotFoundError:
     from clerk_auth import clerk_router, require_user
     from defaults import EXERCISES, EXERCISE_IDS, DEFAULT_DAYS, DEFAULT_PLAN_NAME, BODY_PARTS, SIDES
     import storage
+    import weekly
+    from stats import set_counts, workout_volume, best_loads, goal_progress, goal_key
+    from emailer import send_email, EmailUnavailable
 
 client = AsyncIOMotorClient(os.environ['MONGO_URL'])
 db = client[os.environ['DB_NAME']]
@@ -42,6 +50,7 @@ RANK = {r: len(ROLES) - i for i, r in enumerate(ROLES)}
 ENV = "live" if os.environ.get("CLERK_PUBLISHABLE_KEY", "").startswith("pk_live_") else "preview"
 IN_ENV = {"env": {"$in": [ENV, None]}}
 EX_BY_ID = {e["id"]: e for e in EXERCISES}
+TIMEZONES = available_timezones()
 PHOTO_TYPES = {"jpg": "image/jpeg", "jpeg": "image/jpeg", "png": "image/png", "webp": "image/webp", "heic": "image/heic", "heif": "image/heif"}
 MAX_PHOTO_BYTES = 10 * 1024 * 1024
 
@@ -127,32 +136,8 @@ async def get_plan(uid: str) -> dict:
 
 
 def public_me(member: dict, plan: dict) -> dict:
-    keys = ["user_id", "role", "email", "name", "display_name", "units", "created_at", "updated_at", "last_active"]
-    return {**{k: member.get(k) for k in keys}, "plan_name": plan["name"]}
-
-
-def set_counts(sets: list) -> list:
-    return [s for s in sets if s.get("reps", 0) > 0]
-
-
-def workout_volume(w: dict) -> float:
-    return sum(s["load"] * s["reps"] for ex in w["exercises"] for s in set_counts(ex["sets"]))
-
-
-def best_loads(workouts: list) -> dict:
-    best = {}
-    for w in sorted(workouts, key=lambda x: (x["date"], x["created_at"])):
-        if not w.get("completed"):
-            continue
-        for ex in w["exercises"]:
-            for s in set_counts(ex["sets"]):
-                if s["load"] <= 0:
-                    continue
-                cur = best.get(ex["exercise_id"])
-                if cur is None or s["load"] > cur["load"] or (s["load"] == cur["load"] and s["reps"] > cur["reps"]):
-                    best[ex["exercise_id"]] = {"exercise_id": ex["exercise_id"], "exercise_name": ex["name"],
-                                               "load": s["load"], "reps": s["reps"], "date": w["date"], "workout_id": w["id"]}
-    return best
+    keys = ["user_id", "role", "email", "name", "display_name", "units", "created_at", "updated_at", "last_active", "timezone"]
+    return {**{k: member.get(k) for k in keys}, "plan_name": plan["name"], "weekly_email": member.get("weekly_email", True)}
 
 
 # ---------- Models ----------
@@ -160,6 +145,8 @@ class MeUpdate(BaseModel):
     display_name: Optional[str] = Field(None, min_length=1, max_length=60)
     units: Optional[str] = Field(None, pattern="^(metric|imperial)$")
     plan_name: Optional[str] = Field(None, min_length=1, max_length=60)
+    timezone: Optional[str] = Field(None, max_length=64)
+    weekly_email: Optional[bool] = None
 
 
 class DayIn(BaseModel):
@@ -217,6 +204,8 @@ async def get_me(member: dict = Depends(current_member)):
 @api_router.patch("/me")
 async def update_me(body: MeUpdate, member: dict = Depends(current_member)):
     uid = member["user_id"]
+    if body.timezone and body.timezone not in TIMEZONES:
+        raise HTTPException(status_code=422, detail="Unknown time zone")
     fields = {k: v.strip() if isinstance(v, str) else v for k, v in body.model_dump(exclude_none=True).items() if k != "plan_name"}
     if fields:
         await db.users.update_one({"user_id": uid}, {"$set": fields})
@@ -378,6 +367,7 @@ async def export_data(member: dict = Depends(current_member)):
         "workouts": await db.workouts.find({"user_id": uid}, {"_id": 0}).to_list(5000),
         "measurements": await db.measurements.find({"user_id": uid}, {"_id": 0}).to_list(5000),
         "photos": await db.photos.find({"user_id": uid, "is_deleted": False}, PHOTO_FIELDS).to_list(2000),
+        "goals": await db.goals.find({"user_id": uid}, {"_id": 0}).to_list(100),
     }
 
 
@@ -388,9 +378,115 @@ async def reset_data(member: dict = Depends(current_member)):
     await db.measurements.delete_many({"user_id": uid})
     await db.photos.update_many({"user_id": uid}, {"$set": {"is_deleted": True}})
     await db.plans.delete_one({"user_id": uid})
+    await db.goals.delete_many({"user_id": uid})
     await get_plan(uid)
     await touch(uid)
     return {"ok": True}
+
+
+# ---------- Goals ----------
+class GoalIn(BaseModel):
+    body_part: str
+    side: str
+    flexed: bool = True
+    pumped: bool = False
+    target_cm: float = Field(gt=0, le=400)
+
+
+@api_router.get("/goals")
+async def list_goals(member: dict = Depends(current_member)):
+    uid = member["user_id"]
+    goals = await db.goals.find({"user_id": uid}, {"_id": 0}).sort("created_at", 1).to_list(100)
+    measurements = await db.measurements.find({"user_id": uid}, {"_id": 0}).to_list(5000)
+    return [goal_progress(g, measurements) for g in goals]
+
+
+@api_router.post("/goals")
+async def save_goal(body: GoalIn, member: dict = Depends(current_member)):
+    if body.body_part not in BODY_PARTS or body.side not in SIDES:
+        raise HTTPException(status_code=422, detail="Unknown body part or side")
+    uid = member["user_id"]
+    match = {"user_id": uid, "body_part": body.body_part, "side": body.side, "flexed": body.flexed, "pumped": body.pumped}
+    measurements = await db.measurements.find({"user_id": uid}, {"_id": 0}).to_list(5000)
+    latest = sorted((m for m in measurements if goal_key(m) == goal_key(match)), key=lambda m: (m["date"], m["created_at"]))
+    existing = await db.goals.find_one(match, {"_id": 0})
+    doc = {**match, "target_cm": round(body.target_cm, 2),
+           "start_cm": existing["start_cm"] if existing else (latest[-1]["value_cm"] if latest else None),
+           "id": existing["id"] if existing else str(uuid.uuid4()),
+           "created_at": existing["created_at"] if existing else now_iso()}
+    await db.goals.update_one(match, {"$set": doc}, upsert=True)
+    await touch(uid)
+    return goal_progress(doc, measurements)
+
+
+@api_router.delete("/goals/{goal_id}")
+async def delete_goal(goal_id: str, member: dict = Depends(current_member)):
+    if (await db.goals.delete_one({"id": goal_id, "user_id": member["user_id"]})).deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Not found")
+    await touch(member["user_id"])
+    return {"ok": True}
+
+
+# ---------- Weekly email ----------
+async def send_weekly(user: dict, now: datetime):
+    subject, html = weekly.render_email(user, await weekly.build_summary(db, user, now))
+    return await send_email(to=user["email"], subject=subject, html=html)
+
+
+async def run_weekly_emails(now: datetime = None):
+    now = now or datetime.now(timezone.utc)
+    users = await db.users.find({**IN_ENV, "weekly_email": {"$ne": False}, "email": {"$nin": [None, ""]}}, {"_id": 0}).to_list(10000)
+    for u in users:
+        local = weekly.local_now(u, now)
+        if local.weekday() != 6 or local.hour != 18:
+            continue
+        week = local.date().isoformat()
+        claimed = await db.users.update_one({"user_id": u["user_id"], "last_weekly_email": {"$ne": week}}, {"$set": {"last_weekly_email": week}})
+        if claimed.modified_count != 1:
+            continue
+        try:
+            await send_weekly(u, now)
+            logger.info(f"Weekly email sent to {u['user_id']}")
+        except (EmailUnavailable, ValueError):
+            logger.exception(f"Weekly email failed for {u['user_id']}")
+            await db.users.update_one({"user_id": u["user_id"]}, {"$set": {"last_weekly_email": None}})
+
+
+@api_router.post("/cron/weekly-email")
+async def cron_weekly_email(request: Request, background: BackgroundTasks):
+    # Cron endpoints must ack 2xx immediately; enqueue/background the actual work.
+    secret = os.environ.get("WEBHOOK_CRON_SECRET", "")
+    auth = request.headers.get("authorization", "")
+    if not secret or not auth.startswith("Bearer ") or not hmac.compare_digest(auth[7:].encode(), secret.encode()):
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    try:
+        envelope = await request.json()
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid body")
+    run_id = request.headers.get("x-webhook-id") or (envelope.get("run_id") if isinstance(envelope, dict) else None)
+    if not run_id:
+        raise HTTPException(status_code=400, detail="Missing run id")
+    try:
+        await db.cron_runs.insert_one({"_id": str(run_id), "name": "weekly-email", "received_at": now_iso()})
+    except DuplicateKeyError:
+        return {"status": "duplicate"}
+    background.add_task(run_weekly_emails)
+    return {"status": "accepted"}
+
+
+@api_router.post("/me/weekly-email/preview")
+async def preview_weekly_email(member: dict = Depends(current_member)):
+    last = member.get("last_preview_email")
+    if last and datetime.fromisoformat(last) > datetime.now(timezone.utc) - timedelta(minutes=5):
+        raise HTTPException(status_code=429, detail="You can send a preview once every 5 minutes")
+    if not member.get("email"):
+        raise HTTPException(status_code=422, detail="No email on your account")
+    await db.users.update_one({"user_id": member["user_id"]}, {"$set": {"last_preview_email": now_iso()}})
+    try:
+        await send_weekly(member, datetime.now(timezone.utc))
+    except EmailUnavailable:
+        raise HTTPException(status_code=503, detail="Email is temporarily unavailable")
+    return {"ok": True, "sent_to": member["email"]}
 
 
 # ---------- Owner routes (read-only) ----------
@@ -473,6 +569,7 @@ async def startup():
     await db.workouts.create_index([("user_id", 1), ("date", -1)])
     await db.measurements.create_index([("user_id", 1), ("date", -1)])
     await db.photos.create_index([("user_id", 1), ("date", -1)])
+    await db.goals.create_index("user_id")
     try:
         await run_in_threadpool(storage.init_storage)
         logger.info("Storage initialized")

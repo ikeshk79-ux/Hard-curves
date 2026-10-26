@@ -1,0 +1,8 @@
+crons:
+  - name: weekly-progress-email
+    description: "Hourly check that sends each athlete's weekly summary at 6pm Sunday in their time zone"
+    cron: "0 * * * *"
+    endpoint: "{{BASE_URL}}/api/cron/weekly-email"
+    method: POST
+    # Cron endpoints must ack 2xx immediately; enqueue/background the actual work.
+    enabled: true

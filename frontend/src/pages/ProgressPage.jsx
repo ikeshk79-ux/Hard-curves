@@ -6,6 +6,7 @@ import { cmToDisplay, kgToDisplay, lenUnit, wUnit, fmtLoad, fmtDate } from "../l
 import { BODY_PARTS, SIDES } from "../lib/constants";
 import { PageHeader, SectionTitle, StatCard, Empty, Loading } from "../components/Bits";
 import { PRCardDialog } from "../components/PRCardDialog";
+import { GoalsSection } from "../components/GoalsSection";
 
 const tooltipStyle = { background: "#181A1E", border: "1px solid #2B2E34", borderRadius: 12, color: "#F3F4F6" };
 const shortDate = (iso) => new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, { day: "numeric", month: "short" });
@@ -99,6 +100,7 @@ export default function ProgressPage() {
         <StatCard testId="progress-stat-entries" label="Measurements" value={stats.entries} />
         <StatCard testId="progress-stat-muscles" label="Muscles tracked" value={stats.muscles} />
       </div>
+      <GoalsSection units={me.units} />
       <section><SectionTitle>Measurements, like for like</SectionTitle><MeasurementChart measurements={measurements} units={me.units} /></section>
       <section><SectionTitle>Volume per session</SectionTitle><VolumeChart workouts={workouts} units={me.units} /></section>
       <section>

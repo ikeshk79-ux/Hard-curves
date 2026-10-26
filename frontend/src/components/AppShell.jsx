@@ -1,7 +1,8 @@
+import { useEffect } from "react";
 import { NavLink, Outlet, Link } from "react-router-dom";
 import { Home, Dumbbell, PlusCircle, Ruler, LineChart, Camera, User, Shield } from "lucide-react";
 import { Brand } from "./Brand";
-import { useMe } from "../lib/api";
+import { useMe, useApi } from "../lib/api";
 
 const NAV = [
   { to: "/", label: "Home", icon: Home, end: true, id: "home" },
@@ -47,6 +48,11 @@ const BottomLink = ({ item }) => (
 
 export default function AppShell() {
   const { data: me } = useMe();
+  const api = useApi();
+  useEffect(() => {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (me && tz && me.timezone !== tz) api.patch("/me", { timezone: tz }).catch(() => {});
+  }, [me, api]);
   return (
     <div className="hc-grain min-h-screen bg-hc-bg text-hc-text">
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 flex-col border-r border-hc-line bg-hc-card/60 p-5 lg:flex">

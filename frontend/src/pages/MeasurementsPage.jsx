@@ -48,7 +48,7 @@ const MeasurementForm = ({ units }) => {
     setSaving(true);
     try {
       await api.post("/measurements", { body_part: f.body_part, side: f.side, value_cm: displayToCm(v, units), date: f.date, flexed: f.flexed, pumped: f.pumped, notes: f.notes });
-      await invalidate("measurements", "me");
+      await invalidate("measurements", "me", "goals");
       toast.success("Measurement saved");
       setF({ ...initial(), body_part: f.body_part, side: f.side, flexed: f.flexed, pumped: f.pumped });
     } catch (err) {
@@ -93,7 +93,7 @@ export default function MeasurementsPage() {
   const remove = async (id) => {
     try {
       await api.delete(`/measurements/${id}`);
-      await invalidate("measurements", "me");
+      await invalidate("measurements", "me", "goals");
       toast.success("Measurement deleted");
     } catch (e) {
       toast.error(errMsg(e));

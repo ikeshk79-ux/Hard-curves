@@ -8,6 +8,7 @@ import { useApi, useMe, errMsg } from "../lib/api";
 import { fmtDateTime } from "../lib/units";
 import { PageHeader, SectionTitle, Loading } from "../components/Bits";
 import { ConfirmAction } from "../components/ConfirmAction";
+import { WeeklyEmailCard } from "../components/WeeklyEmailCard";
 
 const ProfileForm = ({ me }) => {
   const api = useApi();
@@ -105,6 +106,7 @@ export default function ProfilePage() {
               <div className="text-sm text-hc-muted">Last change: <span data-testid="cloud-backup-last-change">{fmtDateTime(me.updated_at)}</span></div>
             </div>
           </div>
+          <WeeklyEmailCard me={me} />
           <button data-testid="export-data-button" onClick={exportData} className="hc-btn-ghost h-14"><Download className="h-4 w-4" />Export all data (JSON)</button>
           <ConfirmAction testId="reset-data" title="Reset all data?" confirmLabel="Reset everything"
             description="Deletes all workouts, measurements and photos and restores the default plan. Your account stays. This can't be undone."
