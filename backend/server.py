@@ -204,7 +204,7 @@ async def get_me(member: dict = Depends(current_member)):
 @api_router.patch("/me")
 async def update_me(body: MeUpdate, member: dict = Depends(current_member)):
     uid = member["user_id"]
-    if body.timezone and body.timezone not in TIMEZONES:
+    if body.timezone is not None and body.timezone not in TIMEZONES:
         raise HTTPException(status_code=422, detail="Unknown time zone")
     fields = {k: v.strip() if isinstance(v, str) else v for k, v in body.model_dump(exclude_none=True).items() if k != "plan_name"}
     if fields:
@@ -447,7 +447,7 @@ async def run_weekly_emails(now: datetime = None):
         try:
             await send_weekly(u, now)
             logger.info(f"Weekly email sent to {u['user_id']}")
-        except (EmailUnavailable, ValueError):
+        except Exception:
             logger.exception(f"Weekly email failed for {u['user_id']}")
             await db.users.update_one({"user_id": u["user_id"]}, {"$set": {"last_weekly_email": None}})
 
@@ -484,7 +484,8 @@ async def preview_weekly_email(member: dict = Depends(current_member)):
     await db.users.update_one({"user_id": member["user_id"]}, {"$set": {"last_preview_email": now_iso()}})
     try:
         await send_weekly(member, datetime.now(timezone.utc))
-    except EmailUnavailable:
+    except (EmailUnavailable, ValueError):
+        await db.users.update_one({"user_id": member["user_id"]}, {"$set": {"last_preview_email": None}})
         raise HTTPException(status_code=503, detail="Email is temporarily unavailable")
     return {"ok": True, "sent_to": member["email"]}
 
@@ -569,7 +570,7 @@ async def startup():
     await db.workouts.create_index([("user_id", 1), ("date", -1)])
     await db.measurements.create_index([("user_id", 1), ("date", -1)])
     await db.photos.create_index([("user_id", 1), ("date", -1)])
-    await db.goals.create_index("user_id")
+    await db.goals.create_index([("user_id", 1), ("body_part", 1), ("side", 1), ("flexed", 1), ("pumped", 1)], unique=True)
     try:
         await run_in_threadpool(storage.init_storage)
         logger.info("Storage initialized")

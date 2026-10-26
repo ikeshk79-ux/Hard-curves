@@ -13,6 +13,8 @@ Build the app described in app/memory/WEB_APP_SPEC.md (file not present; approve
 - Google sign-in, protected app. Home, Training (plan editor, library, history), Log workout (set table, rest timer, PR detection and card, draft autosave), Measurements, Progress (charts and records), Photos (private upload, compare, soft delete), Profile (units, export, reset, sign out)
 - Owner area /owner (long-press logo, admin-only, read-only): totals, athlete search, athlete detail and photo viewer
 - Tested: 21 backend pytest cases and full frontend run (iteration_1); follow-up fixes applied
+- Size goals (Progress page): target per body part, side, flexed and pumped state; progress counts matching entries only (iteration_2 passed)
+- Weekly progress email (Emergent managed email): on by default, can be switched off in Profile, with a "Send preview" button. An hourly cron (.emergent/crons.yml -> POST /api/cron/weekly-email) sends at 6pm Sunday in each athlete's own time zone, which is synced from the browser. The email covers the week's sessions, sets, volume, new records, measurement changes and goals
 
 ## Backlog
 - P1: link plan days more deeply, full-screen photo viewer for athletes, share link

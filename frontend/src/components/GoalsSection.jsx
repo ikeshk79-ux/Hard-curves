@@ -50,12 +50,13 @@ const GoalForm = ({ units, onDone }) => {
 
   return (
     <form data-testid="goal-form" onSubmit={submit} className="hc-card grid gap-3 p-4 sm:grid-cols-2 sm:p-5 lg:grid-cols-5">
-      <Pick value={f.body_part} onChange={(v) => set({ body_part: v })} options={BODY_PARTS} testId="goal-body-part" />
-      <Pick value={f.side} onChange={(v) => set({ side: v })} options={SIDES} testId="goal-side" />
-      <Pair value={f.flexed} onChange={(v) => set({ flexed: v })} a="Flexed" b="Unflexed" testId="goal-flexed" />
-      <Pair value={f.pumped} onChange={(v) => set({ pumped: v })} a="Pumped" b="Not pumped" testId="goal-pumped" />
-      <input data-testid="goal-target-input" type="number" inputMode="decimal" step="0.1" min="0" className="hc-input font-mono" value={f.target}
-        onChange={(e) => set({ target: e.target.value })} placeholder={`Target (${lenUnit(units)})`} />
+      <div><div className="hc-label mb-2">Body part</div><Pick value={f.body_part} onChange={(v) => set({ body_part: v })} options={BODY_PARTS} testId="goal-body-part" /></div>
+      <div><div className="hc-label mb-2">Side</div><Pick value={f.side} onChange={(v) => set({ side: v })} options={SIDES} testId="goal-side" /></div>
+      <div><div className="hc-label mb-2">State</div><Pair value={f.flexed} onChange={(v) => set({ flexed: v })} a="Flexed" b="Unflexed" testId="goal-flexed" /></div>
+      <div><div className="hc-label mb-2">Pumped</div><Pair value={f.pumped} onChange={(v) => set({ pumped: v })} a="Yes" b="No" testId="goal-pumped" /></div>
+      <div><label htmlFor="goal-target" className="hc-label mb-2 block">Target ({lenUnit(units)})</label>
+      <input id="goal-target" data-testid="goal-target-input" type="number" inputMode="decimal" step="0.1" min="0" className="hc-input font-mono" value={f.target}
+        onChange={(e) => set({ target: e.target.value })} placeholder="0.0" /></div>
       <button data-testid="goal-save-button" disabled={busy} className="hc-btn sm:col-span-2 lg:col-span-5">{busy ? "Saving…" : "Save goal"}</button>
     </form>
   );
@@ -116,7 +117,7 @@ export const GoalsSection = ({ units }) => {
       <div data-testid="goals-list" className="grid gap-3 sm:grid-cols-2">
         {(goals || []).map((g) => <GoalCard key={g.id} g={g} units={units} onDelete={() => remove(g.id)} />)}
       </div>
-      {goals && !goals.length && !adding && <Empty testId="goals-empty">Set a target arm or thigh size. Progress uses only measurements with the same side, flexed and pumped state.</Empty>}
+      {goals && !goals.length && !adding && <Empty testId="goals-empty">Set a target arm or thigh size. Progress uses only measurements with the same side, flexed and pumped state, starting from your latest matching entry.</Empty>}
     </section>
   );
 };

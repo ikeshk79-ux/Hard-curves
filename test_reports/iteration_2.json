@@ -1,0 +1,40 @@
+{
+  "summary": "Iteration 2: Body Part Goals + Weekly Progress Email. Backend: new pytest file (20 cases) all pass. It covers auth 401 on goals and preview; goal validation (bad body part or side, target 0, negative, over 400, missing target); progress counted only from matching entries (Left, unflexed, pumped and Thighs entries do not change it; start 45 -> 47 gives 40%, 51 gives reached and 100%); a shrinking target (start 90 -> 85 toward 80 gives 50%, 79 gives reached); upsert per combo keeps id and start_cm; isolation (deleting another user's goal gives 404); export includes goals; reset deletes goals; PATCH /me timezone (invalid -> 422) and weekly_email (non-bool -> 422) persist; weekly_email defaults to true; cron returns 401 with no or wrong bearer and with a raw secret missing the 'Bearer ' prefix, 400 for a missing run id or invalid JSON, accepted, duplicate, and X-Webhook-Id header supported; preview sends (provider returned 202) and a second call gives 429. Regression suite test_hard_curves_api.py: 21/21 pass. Frontend (Alex via ticket): add-goal form (Shoulders/Left/Unflexed/Not pumped) saves, the form closes, and the card shows '0 matching entries' with a hint; after logging a matching measurement the card updates (1 matching entry, Now value, % and to-go); the existing Arms goal shows 40% correctly; switching units shows in vs cm correctly; delete Cancel keeps the card, Confirm removes it with a toast; the Profile weekly email card shows the time zone (UTC, matching the browser) and email; the switch toggles with a toast and stays off after reload (restored to on); the first Send preview shows the success toast and the second shows the 5-minute rate-limit toast; AppShell timezone sync overwrote a saved Asia/Tokyo with the browser's UTC. Regression: Home, Log workout save and Measurements add all work. Mobile 390px goal form and email card render fine.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/me/weekly-email/preview", "issue": "last_preview_email is set BEFORE sending. If send_email raises EmailUnavailable (503), the user is still locked out for 5 minutes. Also a ValueError from _assert_safe_email is not caught, so the endpoint returns 500. Reset last_preview_email on failure and map ValueError to a 4xx/5xx with a clear message."},
+      {"endpoint": "PATCH /api/me", "issue": "timezone '' (empty string) is accepted (200) and saved as ''. The check `if body.timezone and ...` skips validation for empty strings. Weekly email then quietly falls back to UTC. Reject it or treat it as null."},
+      {"endpoint": "run_weekly_emails", "issue": "Only EmailUnavailable and ValueError are caught for each user. Any other exception (e.g. KeyError from a malformed doc in build_summary) stops the loop for all remaining users and leaves that user's last_weekly_email claimed, so they get no email that week. Wrap each user in a broad try/except that logs the error and un-claims."},
+      {"endpoint": "POST /api/goals", "issue": "Upsert is find_one + update_one with no unique index on (user_id, body_part, side, flexed, pumped). Two concurrent saves of the same combo can create duplicate goals with different ids. Add a unique compound index."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Progress - goal form", "issues": ["Selects and the target input have no visible labels (only placeholder/value), unlike the Measurements form, which labels every field", "Pumped toggle reads 'Pumped / Not pumped' here but 'Yes / No' on the Measurements form; minor inconsistency"]},
+      {"screen": "Progress - goal created with no prior matching entry", "issues": ["start_cm is null, so the first matching entry becomes the start and the goal shows 0% until a second entry. This is OK but could be explained in the empty hint text"]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_goals_weekly_email.py", "/app/backend/tests/test_hard_curves_api.py", "/app/test_reports/pytest/pytest_goals_weekly.xml"],
+  "action_items": [
+    "Preview endpoint: clear last_preview_email when the send fails, and catch ValueError",
+    "PATCH /me: reject or normalise empty-string timezone",
+    "run_weekly_emails: catch all exceptions per user so one bad user does not abort the batch",
+    "Optional: unique compound index on goals (user_id, body_part, side, flexed, pumped)",
+    "Optional: add labels to goal form fields"
+  ],
+  "critical_code_review_comments": [
+    "AppShell timezone sync PATCHes whenever the browser time zone differs from the saved one, so a user who travels has their Sunday-6pm zone changed silently (intended per spec, but worth noting). An unknown browser zone gives a 422 that is silently ignored, which is fine",
+    "weekly.render_email uses `if g['current_cm']` (truthy) instead of `is not None`. Safe because value_cm > 0, but fragile",
+    "Test files under /app/backend/tests trigger backend WatchFiles reloads when edited (harmless)"
+  ],
+  "updated_files": ["/app/backend/tests/test_goals_weekly_email.py"],
+  "success_rate": {"backend": "100% (41/41 across both pytest files)", "frontend": "100% of requested flows"},
+  "test_credentials": "Used /app/memory/test_credentials.md users (athlete Alex, athlete2 Ben, owner). No changes.",
+  "seed_data_creation": "Ben (athlete2) is reset at the start and end of test_goals_weekly_email.py. Alex: the test goal, measurement, workout and regression measurement were deleted; Alex's Arms/Right goal (40%) and imperial units were kept; timezone is UTC (synced by the browser); weekly_email is on. Preview emails were sent once to Ben and once to Alex (both +clerk_test, not deliverable).",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Run pytest with -n 0. test_goals_weekly_email.py resets Ben. The preview test accepts 200 or 429 because of the 5-minute limit. Cron secret is read via dotenv_values and never printed. The browser time zone in the automation is UTC. Tickets are one-time: regenerate them for each browser session."
+}

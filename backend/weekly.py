@@ -93,7 +93,7 @@ def render_email(user: dict, s: dict) -> tuple:
         delta = "" if c["delta"] is None else f" ({'+' if c['delta'] >= 0 else '−'}{fmt_len(abs(c['delta']), units)})"
         chg_rows.append(_row(c["label"], f"{fmt_len(c['latest'], units)}{delta}"))
     goal_rows = [_row(f"{g['body_part']} · {g['side']} → {fmt_len(g['target_cm'], units)}",
-                      "Reached" if g["reached"] else (f"{g['percent']:.0f}% · now {fmt_len(g['current_cm'], units)}" if g["current_cm"] else "No matching entry yet"))
+                      "Reached" if g["reached"] else (f"{g['percent']:.0f}% · now {fmt_len(g['current_cm'], units)}" if g["current_cm"] is not None else "No matching entry yet"))
                  for g in s["goals"]]
     stats = (f'<tr><td style="padding:20px 24px 0"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>'
              + "".join(f'<td style="background:#22252B;border-radius:10px;padding:12px;text-align:center;width:33%">'
