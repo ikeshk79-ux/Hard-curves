@@ -5,7 +5,7 @@ import hmac
 import logging
 from pathlib import Path
 from datetime import datetime, timezone, timedelta, date as date_cls
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 import requests
 from dotenv import load_dotenv
@@ -181,7 +181,7 @@ class PlanIn(BaseModel):
     days: List[DayIn] = Field(min_length=1, max_length=60)
     split: Optional[str] = None
     schedule: Optional[str] = Field(None, pattern="^(rotation|weekly)$")
-    priorities: Optional[dict] = None
+    priorities: Optional[Dict[str, str]] = None
 
 
 class ProgrammeCreate(BaseModel):

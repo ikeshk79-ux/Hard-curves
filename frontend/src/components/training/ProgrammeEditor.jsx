@@ -97,7 +97,7 @@ export const ProgrammeEditor = ({ programme, exercises, onDirty }) => {
         <PriorityGrid priorities={p.priorities || {}} days={p.days} onChange={(priorities) => setP({ ...p, priorities })} />
       </div>
 
-      <div className="sticky bottom-20 z-30 flex items-center gap-3 rounded-2xl border border-hc-line bg-hc-card/95 p-3 backdrop-blur-md lg:bottom-4">
+      <div className={`${dirty ? "sticky bottom-20 z-30 lg:bottom-4" : ""} flex items-center gap-3 rounded-2xl border border-hc-line bg-hc-card/95 p-3 backdrop-blur-md`}>
         <span data-testid="programme-dirty-state" className="flex-1 text-sm text-hc-muted">{dirty ? "Unsaved changes" : "All changes saved"}</span>
         {dirty && <button data-testid="programme-discard" onClick={() => setP(programme)} className="hc-btn-ghost h-11 text-sm">Discard</button>}
         <button data-testid="programme-save-button" disabled={saving || !dirty} onClick={save} className="hc-btn h-11"><Save className="h-4 w-4" />{saving ? "Saving…" : "Save"}</button>

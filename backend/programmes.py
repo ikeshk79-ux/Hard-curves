@@ -49,9 +49,10 @@ def norm_day(d: dict) -> dict:
     if groups is None:
         groups = list(dict.fromkeys(EX_BY_ID[e]["muscle"] for e in ex_ids))
     weekday = d.get("weekday")
-    return {"id": d.get("id") or new_day_id(), "name": d["name"].strip(), "type": d.get("type") or "training",
-            "muscle_groups": [g for g in groups if g in MUSCLE_GROUPS],
-            "exercise_ids": list(dict.fromkeys(ex_ids)), "weekday": weekday if weekday in range(7) else None}
+    rest = d.get("type") == "rest"
+    return {"id": d.get("id") or new_day_id(), "name": d["name"].strip(), "type": "rest" if rest else "training",
+            "muscle_groups": [] if rest else [g for g in groups if g in MUSCLE_GROUPS],
+            "exercise_ids": [] if rest else list(dict.fromkeys(ex_ids)), "weekday": weekday if weekday in range(7) else None}
 
 
 def legacy_fields(doc: dict, now: str) -> dict:

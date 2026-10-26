@@ -74,10 +74,13 @@ export const ProgrammesSection = ({ exercises }) => {
       return null;
     }
   };
+  const guard = () => !dirty || window.confirm("Discard unsaved changes to this programme?");
   const duplicate = async () => {
+    if (!guard()) return;
     const res = await act(() => api.post(`/programmes/${current.id}/duplicate`), "Programme duplicated");
-    if (res) setViewId(res.data.id);
+    if (res) { setDirty(false); setViewId(res.data.id); }
   };
+  const activate = () => guard() && act(() => api.post(`/programmes/${current.id}/activate`), `${current.name} is now active`);
   const remove = async () => {
     const res = await act(() => api.delete(`/programmes/${current.id}`), "Programme deleted");
     if (res) setViewId(null);
@@ -102,7 +105,7 @@ export const ProgrammesSection = ({ exercises }) => {
         {current.active ? (
           <span data-testid="programme-active-badge" className="inline-flex h-11 items-center gap-2 rounded-xl bg-hc-lime/15 px-4 text-sm font-semibold text-hc-lime"><Check className="h-4 w-4" />Active programme</span>
         ) : (
-          <button data-testid="programme-activate-button" onClick={() => act(() => api.post(`/programmes/${current.id}/activate`), `${current.name} is now active`)} className="hc-btn h-11 text-sm"><Star className="h-4 w-4" />Set as active</button>
+          <button data-testid="programme-activate-button" onClick={activate} className="hc-btn h-11 text-sm"><Star className="h-4 w-4" />Set as active</button>
         )}
         <button data-testid="programme-duplicate-button" onClick={duplicate} className="hc-btn-ghost h-11 text-sm"><Copy className="h-4 w-4" />Duplicate</button>
         {programmes.length > 1 && (

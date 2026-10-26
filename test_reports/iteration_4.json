@@ -1,0 +1,40 @@
+{
+  "summary": "Phase 2 (customisable training/programmes) tested end-to-end. Backend: new tests/test_programmes.py (28 tests) + full regression (85 passed total incl. new file, -n 0 -k 'not preview and not cron_run'). Found & fixed one 500 (priorities with non-string values). UI (Alex via Clerk ticket, desktop 1920 + mobile 390): create programme from split, rename programme/days, toggle muscle groups, Add exercise select (day's muscles listed first), keyboard dnd reorder (Space/ArrowDown/Space) and mouse drag reorder, remove exercise, move day up/down, duplicate/delete day, add training/rest day, Weekdays schedule + weekday selects + week strip, priorities + frequency counts, Save -> reload persists identical order, unsaved-changes confirm on tab switch (dismiss stays, accept switches and discards), duplicate programme, delete with confirm dialog, Set as active -> Home Active plan + Up next (weekly: Monday day; rotation: after logging 'Lower' Up next skipped rest -> 'Day 4'), Log 'Load a plan day' lists only training days, Log workout save works. Exercise library: 41 cards, Model 5 images all load, Glutes filter shows 3. Migration verified: Alex's 'Mass Phase' (default-<uid>, active) exercise_ids identical to /app/backups pre-phase2 backup. All test data cleaned up; Alex left with Mass Phase (active) + PPL Test.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "PUT /api/programmes/{id} and PUT /api/plan", "issue": "FIXED: priorities {'Chest': ['primary']} raised TypeError (unhashable in set) -> 500. Changed PlanIn.priorities to Optional[Dict[str, str]] so bad types now return 422."},
+      {"endpoint": "POST /api/programmes/{id}/activate", "issue": "Not atomic (update_many deactivate then update_one activate); concurrent get_plan between the two could auto-activate the oldest programme. Low risk."},
+      {"endpoint": "norm_day", "issue": "Rest days keep muscle_groups/exercise_ids if a training day is toggled to rest (stale data stored; harmless since rest is skipped everywhere)."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {"flow": "Editing then clicking Set as active / Duplicate while dirty (code review, not UI-reproduced)", "issue": "ProgrammeEditor has useEffect(() => setP(programme), [programme]); act() invalidates 'programmes' so the refetched object replaces local state and silently drops unsaved edits. Duplicate while dirty copies the last saved version and switches view without the discard confirm.", "affected_selectors": ["programme-activate-button", "programme-duplicate-button"]}
+    ],
+    "design_issues": [
+      {"screen": "Training editor (mobile 390px)", "issues": ["Sticky save bar (~70px) stays on screen when there are no changes ('All changes saved' + disabled Save), covering content above the bottom nav. Consider showing it only when dirty."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_programmes.py", "/app/backend/tests/test_hard_curves_api.py", "/app/test_reports/pytest/pytest_results.xml"],
+  "action_items": [
+    "Guard unsaved edits on Set as active / Duplicate (confirm or save first), or only re-sync editor state when not dirty",
+    "Optional: show the sticky save bar only when dirty on mobile",
+    "Optional: clear muscle_groups/exercise_ids on rest days in norm_day; make activate atomic",
+    "server.py is 785 lines (>700) - split programme routes into their own router module"
+  ],
+  "critical_code_review_comments": [
+    "PlanIn.priorities was an untyped dict -> 500 on non-string values (fixed)",
+    "ProgrammeEditor state re-sync on refetch can discard unsaved edits without prompt",
+    "server.py exceeds 700 lines"
+  ],
+  "updated_files": ["/app/backend/server.py (typing Dict import; PlanIn.priorities: Optional[Dict[str, str]])", "/app/backend/tests/test_programmes.py (new)"],
+  "success_rate": {"backend": "100% (after 1 fix; 85 passed incl. 28 in new test_programmes.py)", "frontend": "100% of requested flows"},
+  "test_credentials": "athlete+clerk_test@example.com (Alex, UI via Clerk ticket), athlete2+clerk_test@example.com (Ben, destructive API tests - reset before/after)",
+  "seed_data_creation": "None left behind. Created/deleted TEST UI Prog (+copy) and a 'TEST Lower' workout for Alex; Ben is reset by tests.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "test_programmes.py uses Ben (resets him) and only reads Alex. Clerk tickets are one-time: generate one per browser session via `python3 /app/tests/clerk_tokens.py tickets`. Mouse dnd works when handle is within viewport (sticky save bar can cover lower handles). Alex: Mass Phase (active, id default-<uid>) + PPL Test (main agent's).",
+  "rca of the issue": "500 on PUT /programmes: write_programme checks `v not in prog.PRIORITY_LEVELS`; a list value is unhashable -> TypeError. Mitigated by typing priorities as Dict[str, str] so Pydantic rejects with 422."
+}

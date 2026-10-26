@@ -24,6 +24,13 @@ Build the app described in app/memory/WEB_APP_SPEC.md (file not present; approve
 - Staged for a later phase (not wired yet): /public/model5/front.webp and rear.webp, plus 41 Model 5 exercise pictures in /public/exercises/{exercise-id}.webp
 - Tested: iteration_3 (58 backend tests, full onboarding UI); inches bug and label fixes applied afterwards
 
+## Phase 2 — Fully customisable training system (2026-06)
+- `plans` now holds many programmes per athlete (id, active, split, schedule rotation|weekly, priorities, days[{id,name,type training|rest,muscle_groups,exercise_ids order,weekday}]). An idempotent startup migration turned each old plan into an active programme (id default-<user_id>); backup at /app/backups/db-*-pre-phase2.json
+- API: /programmes CRUD, duplicate, activate, /splits (PPL, Upper/Lower, Arnold, Bro, Full Body, Custom), POST /programmes/{id}/days/{day_id}/exercises (hook for the Model 5 muscle selector); /plan still serves the active programme
+- Exercise library is now 41 exercises across 12 muscle groups (the original 12 ids are kept), each with a Model 5 image
+- Training UI: programme tabs, new from split, rename, schedule mode with week strip, day cards (muscle groups, drag-to-reorder exercises with dnd-kit, add/remove exercises, move/duplicate/delete days, rest days), priorities with weekly frequency, unsaved-changes guard
+- Tested: iteration_4 (85 backend tests, full UI flows)
+
 ## Backlog
 - P1: link plan days more deeply, full-screen photo viewer for athletes, share link
 - P2: weekly progress email, streaks, per-body-part goals
