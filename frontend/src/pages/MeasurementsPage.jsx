@@ -3,7 +3,7 @@ import { Trash2, Save } from "lucide-react";
 import { toast } from "sonner";
 import { useApi, useMe, useMeasurements, useInvalidate, errMsg } from "../lib/api";
 import { displayToCm, fmtLen, lenUnit, fmtDate, todayISO, isValidPastDate } from "../lib/units";
-import { BODY_PARTS, SIDES, CONDITIONS, FULL_SET, partLabel, defaultSide } from "../lib/constants";
+import { BODY_PARTS, CONDITIONS, FULL_SET, partLabel, defaultSide, sidesFor } from "../lib/constants";
 import { MeasurementSetForm, keyOf } from "../components/MeasurementSetForm";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { PageHeader, SectionTitle, Empty, Loading } from "../components/Bits";
@@ -62,7 +62,7 @@ const MeasurementForm = ({ units }) => {
   return (
     <form data-testid="measurement-form" onSubmit={submit} className="hc-card grid gap-4 p-4 sm:grid-cols-2 sm:p-6 lg:grid-cols-4">
       <Pick label="Body part" value={f.body_part} onChange={(v) => set({ body_part: v, side: defaultSide(v) })} options={BODY_PARTS} format={partLabel} testId="measurement-body-part" />
-      <Pick label="Side" value={f.side} onChange={(v) => set({ side: v })} options={SIDES} testId="measurement-side" />
+      <Pick label="Side" value={f.side} onChange={(v) => set({ side: v })} options={sidesFor(f.body_part)} testId="measurement-side" />
       <div>
         <label className="hc-label mb-2 block" htmlFor="m-value">Value ({lenUnit(units)})</label>
         <input id="m-value" data-testid="measurement-value-input" type="number" inputMode="decimal" step="0.1" min="0" className="hc-input font-mono text-lg" value={f.value} onChange={(e) => set({ value: e.target.value })} placeholder="0.0" />

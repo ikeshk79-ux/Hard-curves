@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import { Play, Flame, Weight, Ruler, ClipboardList, Lightbulb, ChevronRight } from "lucide-react";
 import { useMe, usePlan, useExercises, useWorkouts, useMeasurements } from "../lib/api";
 import { fmtVolume, fmtLen, fmtDate } from "../lib/units";
-import { tipOfTheDay, nextDay } from "../lib/constants";
+import { tipOfTheDay, nextDay, partLabel } from "../lib/constants";
 import { StatCard, SectionTitle, Empty, Loading } from "../components/Bits";
 
 const UpNext = ({ day, exercises }) => (
@@ -84,7 +84,7 @@ export default function HomePage() {
               {measurements.slice(0, 5).map((m) => (
                 <div key={m.id} data-testid="latest-measurement-item" className="flex items-center justify-between px-4 py-3">
                   <div>
-                    <div className="font-semibold">{m.body_part} <span className="text-hc-muted">· {m.side}</span></div>
+                    <div className="font-semibold">{partLabel(m.body_part)} <span className="text-hc-muted">· {m.side}</span></div>
                     <div className="text-xs text-hc-muted">{fmtDate(m.date)} · {m.flexed ? "Flexed" : "Unflexed"}{m.pumped ? " · Pumped" : ""}</div>
                   </div>
                   <div className="font-mono font-bold">{fmtLen(m.value_cm, units)}</div>

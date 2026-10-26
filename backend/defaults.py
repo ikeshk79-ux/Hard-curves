@@ -25,4 +25,9 @@ DEFAULT_DAYS = [
 ]
 
 BODY_PARTS = ["Neck", "Shoulders", "Chest", "Back", "Waist", "Hips", "Glutes", "Arms", "Forearms", "Thighs", "Calves"]
+BILATERAL_PARTS = {"Arms", "Forearms", "Thighs", "Calves"}
+
+
+def side_ok(part: str, side: str) -> bool:
+    return side in ({"Left", "Right", "Both"} if part in BILATERAL_PARTS else {"Midline"})
 SIDES = ["Right", "Left", "Both", "Midline"]

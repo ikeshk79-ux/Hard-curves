@@ -2,8 +2,11 @@ export const BODY_PARTS = ["Neck", "Shoulders", "Chest", "Back", "Waist", "Hips"
 export const SIDES = ["Right", "Left", "Both", "Midline"];
 export const PART_LABEL = { Arms: "Upper arm" };
 export const partLabel = (p) => PART_LABEL[p] || p;
+const SINGULAR = { Arms: "upper arm", Forearms: "forearm", Thighs: "thigh", Calves: "calf" };
+export const entryLabel = (e) => (e.side === "Midline" ? partLabel(e.body_part) : `${e.side} ${SINGULAR[e.body_part] || e.body_part.toLowerCase()}`);
 const BILATERAL = ["Arms", "Forearms", "Thighs", "Calves"];
 export const defaultSide = (part) => (BILATERAL.includes(part) ? "Right" : "Midline");
+export const sidesFor = (part) => (BILATERAL.includes(part) ? ["Right", "Left", "Both"] : ["Midline"]);
 
 export const FULL_SET = [
   ...["Neck", "Shoulders", "Chest", "Back", "Waist", "Hips", "Glutes"].map((p) => ({ body_part: p, side: "Midline" })),

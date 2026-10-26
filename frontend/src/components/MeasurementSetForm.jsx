@@ -1,4 +1,4 @@
-import { CONDITIONS, FULL_SET, partLabel } from "../lib/constants";
+import { CONDITIONS, FULL_SET, entryLabel } from "../lib/constants";
 import { lenUnit } from "../lib/units";
 
 export const keyOf = (e) => `${e.body_part}-${e.side}`;
@@ -17,7 +17,7 @@ export const MeasurementSetForm = ({ units, condition, onCondition, values, onVa
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
       {FULL_SET.map((e) => {
         const k = keyOf(e);
-        const label = e.side === "Midline" ? partLabel(e.body_part) : `${e.side} ${partLabel(e.body_part).toLowerCase()}`;
+        const label = entryLabel(e);
         return (
           <label key={k} className="block">
             <span className="hc-label mb-1.5 block">{label}</span>

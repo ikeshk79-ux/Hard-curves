@@ -132,7 +132,7 @@ def test_measurements(toks):
     mid = r.json()["id"]
     for bad in ["2026-02-30", "2099-01-01", "abc", "1900-01-01"]:
         assert requests.post(f"{API}/measurements", headers=h, json={**base, "date": bad}).status_code == 422, bad
-    assert requests.post(f"{API}/measurements", headers=h, json={**base, "body_part": "Neck"}).status_code == 422
+    assert requests.post(f"{API}/measurements", headers=h, json={**base, "body_part": "Toes"}).status_code == 422
     assert requests.post(f"{API}/measurements", headers=h, json={**base, "value_cm": 0}).status_code == 422
     assert mid in [m["id"] for m in requests.get(f"{API}/measurements", headers=h).json()]
     assert mid not in [m["id"] for m in requests.get(f"{API}/measurements", headers=H(toks, "athlete")).json()]

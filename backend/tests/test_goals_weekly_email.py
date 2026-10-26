@@ -51,7 +51,7 @@ def test_goals_require_auth(method, path):
 
 # --- Goal validation ---
 @pytest.mark.parametrize("body", [
-    {"body_part": "Neck", "side": "Right", "target_cm": 40},
+    {"body_part": "Toes", "side": "Right", "target_cm": 40},
     {"body_part": "Arms", "side": "Middle", "target_cm": 40},
     {"body_part": "Arms", "side": "Right", "target_cm": 0},
     {"body_part": "Arms", "side": "Right", "target_cm": -5},

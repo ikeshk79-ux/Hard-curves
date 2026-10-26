@@ -1,11 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { ArrowLeft, ArrowRight, Check } from "lucide-react";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import { useApi, useMe, errMsg } from "../lib/api";
 import { displayToCm, displayToKg, fmtHeight, todayISO, wUnit } from "../lib/units";
-import { CONDITIONS, FULL_SET, partLabel } from "../lib/constants";
+import { CONDITIONS, FULL_SET, entryLabel } from "../lib/constants";
 import { Brand } from "../components/Brand";
 import { Loading } from "../components/Bits";
 import { HeightInput, heightError } from "../components/HeightInput";
@@ -40,6 +40,7 @@ export default function OnboardingPage() {
   const [touched, setTouched] = useState(false);
   const [saving, setSaving] = useState(false);
   const [done, setDone] = useState(false);
+  const saved = useRef({ weight: false, measure: false });
   useEffect(() => { if (me) setF((x) => ({ ...x, height_cm: me.height_cm ?? null, height_unit: me.height_unit, units: me.units, model: me.model })); }, [me]);
 
   if (!me) return <Loading />;
@@ -60,10 +61,14 @@ export default function OnboardingPage() {
   const save = async () => {
     setSaving(true);
     try {
-      if (weightKg) await api.post("/body-weights", { weight_kg: weightKg, date: todayISO() });
-      if (!f.skipMeasure && entries.length) {
+      if (weightKg && !saved.current.weight) {
+        await api.post("/body-weights", { weight_kg: weightKg, date: todayISO() });
+        saved.current.weight = true;
+      }
+      if (!f.skipMeasure && entries.length && !saved.current.measure) {
         const c = CONDITIONS.find((x) => x.id === f.condition);
         await api.post("/measurements/bulk", { date: todayISO(), flexed: c.flexed, pumped: c.pumped, entries: entries.map((e) => ({ ...e, value_cm: displayToCm(Number(f.values[keyOf(e)]), f.units) })) });
+        saved.current.measure = true;
       }
       await api.patch("/me", { height_cm: Math.round(f.height_cm * 10) / 10, height_unit: f.height_unit, units: f.units, model: f.model, onboarding_completed: true });
       setDone(true);
@@ -127,7 +132,7 @@ export default function OnboardingPage() {
             <Row k="Units" v={f.units === "metric" ? "cm / kg" : "in / lb"} />
             <Row k="Body weight" v={f.weight ? `${f.weight} ${wUnit(f.units)}` : "Skipped"} />
             <Row k="Measurements" v={!f.skipMeasure && entries.length ? `${entries.length} · ${c.label}` : "Add later"} />
-            {!f.skipMeasure && entries.length > 0 && <div className="pb-2 text-xs text-hc-muted">{entries.map((e) => (e.side === "Midline" ? partLabel(e.body_part) : `${e.side} ${partLabel(e.body_part).toLowerCase()}`)).join(", ")}</div>}
+            {!f.skipMeasure && entries.length > 0 && <div className="pb-2 text-xs text-hc-muted">{entries.map(entryLabel).join(", ")}</div>}
             <Row k="Model" v="Model 5" />
           </div>
           <button data-testid="onboarding-save-button" disabled={saving} onClick={save} className="hc-btn h-14 w-full text-lg">{saving ? "Saving…" : "Save profile"}</button>
@@ -153,6 +158,7 @@ const Shell = ({ step, children }) => (
         </div>
       )}
       <div className="hc-rise">{children}</div>
+      <img src="/model5/front.webp" alt="" aria-hidden="true" className="hidden" />
     </div>
   </div>
 );

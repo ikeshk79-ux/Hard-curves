@@ -3,7 +3,7 @@ import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxi
 import { Trophy, Share2 } from "lucide-react";
 import { useMe, useWorkouts, useMeasurements, useRecords } from "../lib/api";
 import { cmToDisplay, kgToDisplay, lenUnit, wUnit, fmtLoad, fmtDate } from "../lib/units";
-import { BODY_PARTS, SIDES } from "../lib/constants";
+import { BODY_PARTS, SIDES, partLabel, defaultSide } from "../lib/constants";
 import { PageHeader, SectionTitle, StatCard, Empty, Loading } from "../components/Bits";
 import { PRCardDialog } from "../components/PRCardDialog";
 import { GoalsSection } from "../components/GoalsSection";
@@ -31,7 +31,7 @@ const MeasurementChart = ({ measurements, units }) => {
 
   return (
     <div data-testid="measurement-chart-card" className="hc-card space-y-4 p-4 sm:p-6">
-      <Chips prefix="chart-part" value={part} onChange={setPart} options={BODY_PARTS.map((p) => [p, p])} />
+      <Chips prefix="chart-part" value={part} onChange={(p) => { setPart(p); setSide(defaultSide(p)); }} options={BODY_PARTS.map((p) => [p, partLabel(p)])} />
       <div className="flex flex-wrap gap-4">
         <Chips prefix="chart-side" value={side} onChange={setSide} options={SIDES.map((s) => [s, s])} />
         <Chips prefix="chart-flexed" value={flexed} onChange={setFlexed} options={[[true, "Flexed"], [false, "Unflexed"]]} />
@@ -44,13 +44,13 @@ const MeasurementChart = ({ measurements, units }) => {
               <CartesianGrid stroke="#2B2E34" vertical={false} />
               <XAxis dataKey="date" stroke="#8E949E" fontSize={12} tickLine={false} />
               <YAxis stroke="#8E949E" fontSize={12} tickLine={false} domain={[0, "auto"]} unit={` ${lenUnit(units)}`} width={64} />
-              <Tooltip contentStyle={tooltipStyle} cursor={{ fill: "#22252B" }} formatter={(v) => [`${v} ${lenUnit(units)}`, part]} />
+              <Tooltip contentStyle={tooltipStyle} cursor={{ fill: "#22252B" }} formatter={(v) => [`${v} ${lenUnit(units)}`, partLabel(part)]} />
               <Bar dataKey="value" fill="#C8F169" radius={[6, 6, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
       ) : (
-        <Empty testId="measurement-chart-empty">Log at least 2 {part.toLowerCase()} entries that match these filters to see the trend.</Empty>
+        <Empty testId="measurement-chart-empty">Log at least 2 {partLabel(part).toLowerCase()} entries that match these filters to see the trend.</Empty>
       )}
     </div>
   );

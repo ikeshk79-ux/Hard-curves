@@ -23,13 +23,13 @@ load_dotenv(ROOT_DIR / '.env')
 
 try:
     from backend.clerk_auth import clerk_router, require_user
-    from backend.defaults import EXERCISES, EXERCISE_IDS, DEFAULT_DAYS, DEFAULT_PLAN_NAME, BODY_PARTS, SIDES
+    from backend.defaults import EXERCISES, EXERCISE_IDS, DEFAULT_DAYS, DEFAULT_PLAN_NAME, BODY_PARTS, SIDES, side_ok
     from backend import storage, weekly
     from backend.stats import set_counts, workout_volume, best_loads, goal_progress, goal_key
     from backend.emailer import send_email, EmailUnavailable
 except ModuleNotFoundError:
     from clerk_auth import clerk_router, require_user
-    from defaults import EXERCISES, EXERCISE_IDS, DEFAULT_DAYS, DEFAULT_PLAN_NAME, BODY_PARTS, SIDES
+    from defaults import EXERCISES, EXERCISE_IDS, DEFAULT_DAYS, DEFAULT_PLAN_NAME, BODY_PARTS, SIDES, side_ok
     import storage
     import weekly
     from stats import set_counts, workout_volume, best_loads, goal_progress, goal_key
@@ -316,8 +316,8 @@ async def list_measurements(member: dict = Depends(current_member)):
 
 @api_router.post("/measurements")
 async def create_measurement(body: MeasurementIn, member: dict = Depends(current_member)):
-    if body.body_part not in BODY_PARTS or body.side not in SIDES:
-        raise HTTPException(status_code=422, detail="Unknown body part or side")
+    if body.body_part not in BODY_PARTS or not side_ok(body.body_part, body.side):
+        raise HTTPException(status_code=422, detail="That side doesn't fit this body part")
     doc = {"id": str(uuid.uuid4()), "user_id": member["user_id"], **body.model_dump(),
            "value_cm": round(body.value_cm, 2), "date": validate_date(body.date), "notes": body.notes.strip(), "created_at": now_iso()}
     await db.measurements.insert_one({**doc})
@@ -328,8 +328,10 @@ async def create_measurement(body: MeasurementIn, member: dict = Depends(current
 @api_router.post("/measurements/bulk")
 async def create_measurements_bulk(body: MeasurementBulkIn, member: dict = Depends(current_member)):
     day = validate_date(body.date)
-    if any(e.body_part not in BODY_PARTS or e.side not in SIDES for e in body.entries):
-        raise HTTPException(status_code=422, detail="Unknown body part or side")
+    if any(e.body_part not in BODY_PARTS or not side_ok(e.body_part, e.side) for e in body.entries):
+        raise HTTPException(status_code=422, detail="That side doesn't fit this body part")
+    if len({(e.body_part, e.side) for e in body.entries}) != len(body.entries):
+        raise HTTPException(status_code=422, detail="Each body part and side can appear only once")
     now = now_iso()
     docs = [{"id": str(uuid.uuid4()), "user_id": member["user_id"], "body_part": e.body_part, "side": e.side,
              "value_cm": round(e.value_cm, 2), "date": day, "flexed": body.flexed, "pumped": body.pumped,
@@ -468,8 +470,8 @@ async def list_goals(member: dict = Depends(current_member)):
 
 @api_router.post("/goals")
 async def save_goal(body: GoalIn, member: dict = Depends(current_member)):
-    if body.body_part not in BODY_PARTS or body.side not in SIDES:
-        raise HTTPException(status_code=422, detail="Unknown body part or side")
+    if body.body_part not in BODY_PARTS or not side_ok(body.body_part, body.side):
+        raise HTTPException(status_code=422, detail="That side doesn't fit this body part")
     uid = member["user_id"]
     match = {"user_id": uid, "body_part": body.body_part, "side": body.side, "flexed": body.flexed, "pumped": body.pumped}
     measurements = await db.measurements.find({"user_id": uid}, {"_id": 0}).to_list(5000)

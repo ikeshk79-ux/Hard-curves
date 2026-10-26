@@ -1,0 +1,41 @@
+{
+  "summary": "Phase 1 (onboarding + physique profile) tested end to end. Backend: new suite test_physique_onboarding.py has 19/19 passing (PATCH /me validation, fresh-user defaults, existing-user onboarding_completed=true, bulk measurements valid/invalid, body-weight CRUD, per-user isolation, 25-350 kg range, future dates rejected, export/reset). Regression suites: 39/39 passing with -n 0 (preview email and cron run tests skipped), after updating two stale assertions that used 'Neck' as an invalid body part. UI: two fresh Clerk users went through onboarding on mobile and desktop. Checked: imperial with measurements, metric with weight skipped and 'Add later'; redirect to /welcome; height validation; CM/FT-IN conversions (175.3 -> 5 ft 9 in -> 175.3; 5 ft 9 in -> 175.3); review, save, 'You're set up' and Continue to Home; /welcome redirects to Home afterwards. Persisted values were correct (inches stored as cm*2.54, 154 lb -> 69.85 kg). Also checked Profile Physique (height save/reload/unit kept, weight log/delete, lb display when imperial), Measurements Full set and single-mode default sides, and Alex's data (matches the pre-phase backup: 3 workouts, 2 measurements, 1 photo, 1 goal, 1 plan; not forced into onboarding). One functional bug found: inches 12 or more are not blocked.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/measurements/bulk, POST /api/measurements, POST /api/goals", "issue": "Side is not checked against the body part: Neck/Left, Arms/Midline and a Neck/Right goal are all accepted. Bulk also accepts the same part+side twice in one request"}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "HeightInput (Onboarding step 1 and Profile HeightCard)", "issue": "Entering inches >= 12 (e.g. 5 ft 12 in) shows the 'Inches must be between 0 and 11.9' error, but onboarding Next still moves on and Profile 'Save height' still saves it as 6 ft 0 in (182.9 cm). OnboardingPage.next() and HeightCard.save() only check heightError(cm), not the inchBad state inside HeightInput. Negative inches or feet would also pass if the total stays in 100-250 cm", "selector": "[data-testid=height-in-input], [data-testid=onboarding-next-button], [data-testid=height-save-button]", "priority": "MEDIUM"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "MeasurementSetForm (onboarding + Full set)", "issues": ["Bilateral labels are plural: 'Left forearms', 'Right thighs', 'Left calves'. They should be singular ('Left forearm', 'Right thigh'), in line with 'Left upper arm'"]},
+      {"screen": "Home 'Latest measurements' and Progress (goal card title, part chips)", "issues": ["These still show 'Arms' instead of the new 'Upper arm' label (partLabel is not used). Measurements empty-state text also says 'No measurements for Arms'"]},
+      {"screen": "Progress chart chips", "issues": ["Choosing a midline part (Neck, Waist, Hips, Glutes...) keeps the side as Right, so the chart is empty until the user taps Midline. Use defaultSide() here too"]},
+      {"screen": "Onboarding step 5 (model)", "issues": ["On first view the Model 5 image had naturalWidth 0 and showed as a black box during the rise animation (the 57 KB webp had not loaded yet). It loaded in Profile. Consider preloading it on earlier steps"]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_physique_onboarding.py", "/app/backend/tests/test_hard_curves_api.py", "/app/backend/tests/test_goals_weekly_email.py", "/app/test_reports/pytest/pytest_physique.xml", "/app/test_reports/pytest/pytest_regression_it3.xml"],
+  "action_items": [
+    "Block inches >= 12 (and negative ft/in) in OnboardingPage.next() and HeightCard.save(). For example, export a validator from HeightInput that takes the ft/in fields, or have HeightInput call onChange(NaN) or report the error to its parent",
+    "Use singular labels for bilateral parts in MeasurementSetForm",
+    "Use partLabel() on Home latest measurements and on Progress chips/goal titles; use defaultSide() when a part is picked on Progress",
+    "Optional: check that side matches the part in the backend (midline parts -> Midline; bilateral parts -> Left/Right/Both)"
+  ],
+  "critical_code_review_comments": [
+    "HeightInput keeps inchBad as internal state that the parent cannot see. This is the root cause of the inches bug",
+    "Onboarding save() runs three requests in a row (body-weights, bulk, PATCH /me). If PATCH fails after the first two succeed, a retry posts the weight and measurements again (duplicates). Do PATCH first, or skip the steps that already succeeded on retry",
+    "public_me defaults onboarding_completed to True when the field is missing. A user doc created by any other path without the field (not via current_member setOnInsert) also skips onboarding. This is the intended behaviour for legacy users",
+    "Body-weight date input keeps the last date after logging, so quick repeat logs reuse the old date (minor UX)"
+  ],
+  "updated_files": ["/app/backend/tests/test_physique_onboarding.py (new)", "/app/backend/tests/test_hard_curves_api.py (invalid part Neck->Toes)", "/app/backend/tests/test_goals_weekly_email.py (invalid part Neck->Toes)", "/app/tests/clerk_fresh_ticket.py (new helper)", "/app/memory/test_credentials.md (appended onboarding test users)"],
+  "success_rate": {"backend": "100% (58/58 incl. regression, 2 email tests deselected)", "frontend": "~95% (all requested flows work; inches validation bug)"},
+  "test_credentials": "Used athlete (Alex) and athlete2 (Ben) from test_credentials.md, plus newly created onbui14ceb9+clerk_test and onbui39e1e3+clerk_test (recorded in test_credentials.md).",
+  "seed_data_creation": "Fresh Clerk users created (see above), plus onbtest* users created by the pytest run. Ben is reset by the goals suite. Alex is unchanged (UI only read data; timezone sync may have PATCHed).",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Use python3 /app/tests/clerk_fresh_ticket.py for a new user and ticket for onboarding. Run pytest with -n 0 and -k 'not preview_email_and_rate_limit and not cron_run_id' to avoid sending emails. Container date is Oct 2026. Retest: inches >= 12 must be blocked in onboarding and Profile."
+}

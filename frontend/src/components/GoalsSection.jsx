@@ -2,17 +2,17 @@ import { useState } from "react";
 import { Target, Trash2, Plus, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { useApi, useGoals, useInvalidate, errMsg } from "../lib/api";
-import { BODY_PARTS, SIDES } from "../lib/constants";
+import { BODY_PARTS, partLabel, defaultSide, sidesFor } from "../lib/constants";
 import { displayToCm, fmtLen, lenUnit, fmtDate } from "../lib/units";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { SectionTitle, Empty } from "./Bits";
 import { ConfirmAction } from "./ConfirmAction";
 
-const Pick = ({ value, onChange, options, testId }) => (
+const Pick = ({ value, onChange, options, testId, format = (o) => o }) => (
   <Select value={value} onValueChange={onChange}>
     <SelectTrigger data-testid={testId} className="h-12 rounded-xl border-hc-line bg-hc-bg text-base"><SelectValue /></SelectTrigger>
     <SelectContent className="border-hc-line bg-hc-card">
-      {options.map((o) => <SelectItem key={o} value={o} data-testid={`${testId}-option-${o.toLowerCase()}`}>{o}</SelectItem>)}
+      {options.map((o) => <SelectItem key={o} value={o} data-testid={`${testId}-option-${o.toLowerCase()}`}>{format(o)}</SelectItem>)}
     </SelectContent>
   </Select>
 );
@@ -50,8 +50,8 @@ const GoalForm = ({ units, onDone }) => {
 
   return (
     <form data-testid="goal-form" onSubmit={submit} className="hc-card grid gap-3 p-4 sm:grid-cols-2 sm:p-5 lg:grid-cols-5">
-      <div><div className="hc-label mb-2">Body part</div><Pick value={f.body_part} onChange={(v) => set({ body_part: v })} options={BODY_PARTS} testId="goal-body-part" /></div>
-      <div><div className="hc-label mb-2">Side</div><Pick value={f.side} onChange={(v) => set({ side: v })} options={SIDES} testId="goal-side" /></div>
+      <div><div className="hc-label mb-2">Body part</div><Pick value={f.body_part} onChange={(v) => set({ body_part: v, side: defaultSide(v) })} options={BODY_PARTS} format={partLabel} testId="goal-body-part" /></div>
+      <div><div className="hc-label mb-2">Side</div><Pick value={f.side} onChange={(v) => set({ side: v })} options={sidesFor(f.body_part)} testId="goal-side" /></div>
       <div><div className="hc-label mb-2">State</div><Pair value={f.flexed} onChange={(v) => set({ flexed: v })} a="Flexed" b="Unflexed" testId="goal-flexed" /></div>
       <div><div className="hc-label mb-2">Pumped</div><Pair value={f.pumped} onChange={(v) => set({ pumped: v })} a="Yes" b="No" testId="goal-pumped" /></div>
       <div><label htmlFor="goal-target" className="hc-label mb-2 block">Target ({lenUnit(units)})</label>
@@ -68,7 +68,7 @@ const GoalCard = ({ g, units, onDelete }) => {
     <div data-testid={`goal-card-${g.id}`} className={`hc-card p-4 sm:p-5 ${g.reached ? "border-hc-lime" : ""}`}>
       <div className="flex items-start justify-between gap-3">
         <div>
-          <div className="hc-title text-xl">{g.body_part} · {g.side}</div>
+          <div className="hc-title text-xl">{partLabel(g.body_part)} · {g.side}</div>
           <div className="text-xs text-hc-muted">{g.flexed ? "Flexed" : "Unflexed"} · {g.pumped ? "Pumped" : "Not pumped"} · {g.entries} matching {g.entries === 1 ? "entry" : "entries"}</div>
         </div>
         <ConfirmAction testId="goal-delete" title="Delete goal?" description="Your measurements stay; only the goal is removed." onConfirm={onDelete}

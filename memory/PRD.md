@@ -16,6 +16,14 @@ Build the app described in app/memory/WEB_APP_SPEC.md (file not present; approve
 - Size goals (Progress page): target per body part, side, flexed and pumped state; progress counts matching entries only (iteration_2 passed)
 - Weekly progress email (Emergent managed email): on by default, can be switched off in Profile, with a "Send preview" button. An hourly cron (.emergent/crons.yml -> POST /api/cron/weekly-email) sends at 6pm Sunday in each athlete's own time zone, which is synced from the browser. The email covers the week's sessions, sets, volume, new records, measurement changes and goals
 
+## Phase 1 — Personalised registration & physique setup (2026-06)
+- New users go through /welcome onboarding (height CM | FT/IN stored in cm, units, optional weight, optional full measurement set with 4 conditions, Model 5, review & save). Accounts created before this are treated as completed
+- Profile > Physique: height editor, body-weight log (body_weights collection), model picker
+- Measurements: Neck, Waist, Hips, Glutes added; "Arms" shown as "Upper arm"; side must fit the body part; Full set mode (POST /api/measurements/bulk)
+- DB backup before the phase: /app/backups/db-20261026T184507Z.json; reference images in /app/backups
+- Staged for a later phase (not wired yet): /public/model5/front.webp and rear.webp, plus 41 Model 5 exercise pictures in /public/exercises/{exercise-id}.webp
+- Tested: iteration_3 (58 backend tests, full onboarding UI); inches bug and label fixes applied afterwards
+
 ## Backlog
 - P1: link plan days more deeply, full-screen photo viewer for athletes, share link
 - P2: weekly progress email, streaks, per-body-part goals

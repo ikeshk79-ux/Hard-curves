@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { cmToFtIn, ftInToCm, HEIGHT_MIN_CM, HEIGHT_MAX_CM } from "../lib/units";
 
 export const heightError = (cm) => {
-  if (cm == null || Number.isNaN(cm)) return "Enter your height";
+  if (cm == null) return "Enter your height";
+  if (Number.isNaN(cm)) return "Enter a valid height (feet and inches 0–11.9)";
   if (cm < HEIGHT_MIN_CM || cm > HEIGHT_MAX_CM) return `Height must be between ${HEIGHT_MIN_CM} and ${HEIGHT_MAX_CM} cm (3 ft 4 in – 8 ft 2 in)`;
   return null;
 };
@@ -27,7 +28,9 @@ export const HeightInput = ({ cm, unit, onChange, onUnit, showError }) => {
   };
   const setFtIn = (ft, inch) => {
     setF({ ...f, ft, inch });
-    onChange(ft === "" && inch === "" ? null : ftInToCm(Number(ft) || 0, Number(inch) || 0));
+    const [nf, ni] = [Number(ft) || 0, Number(inch) || 0];
+    if (ft === "" && inch === "") onChange(null);
+    else onChange(nf < 0 || ni < 0 || ni >= 12 ? NaN : ftInToCm(nf, ni));
   };
   const switchUnit = (u) => {
     if (u === unit) return;
@@ -35,7 +38,7 @@ export const HeightInput = ({ cm, unit, onChange, onUnit, showError }) => {
     onUnit(u);
   };
   const err = showError ? heightError(cm) : null;
-  const inchBad = unit === "ftin" && f.inch !== "" && (Number(f.inch) < 0 || Number(f.inch) >= 12);
+  const inchBad = unit === "ftin" && ((f.inch !== "" && (Number(f.inch) < 0 || Number(f.inch) >= 12)) || (f.ft !== "" && Number(f.ft) < 0));
 
   return (
     <div data-testid="height-input" className="space-y-3">
