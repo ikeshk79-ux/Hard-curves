@@ -9,6 +9,7 @@ import { fmtDateTime } from "../lib/units";
 import { PageHeader, SectionTitle, Loading } from "../components/Bits";
 import { ConfirmAction } from "../components/ConfirmAction";
 import { WeeklyEmailCard } from "../components/WeeklyEmailCard";
+import { PhysiqueSection } from "../components/PhysiqueSection";
 
 const ProfileForm = ({ me }) => {
   const api = useApi();
@@ -96,6 +97,10 @@ export default function ProfilePage() {
     <div className="hc-rise space-y-8">
       <PageHeader eyebrow={me.email} title="Profile" />
       <ProfileForm me={me} />
+      <section>
+        <SectionTitle>Physique</SectionTitle>
+        <PhysiqueSection me={me} />
+      </section>
       <section>
         <SectionTitle>Your data</SectionTitle>
         <div className="grid gap-3 sm:grid-cols-2">

@@ -51,6 +51,7 @@ ENV = "live" if os.environ.get("CLERK_PUBLISHABLE_KEY", "").startswith("pk_live_
 IN_ENV = {"env": {"$in": [ENV, None]}}
 EX_BY_ID = {e["id"]: e for e in EXERCISES}
 TIMEZONES = available_timezones()
+DEFAULT_MODEL = "model5"
 PHOTO_TYPES = {"jpg": "image/jpeg", "jpeg": "image/jpeg", "png": "image/png", "webp": "image/webp", "heic": "image/heic", "heif": "image/heif"}
 MAX_PHOTO_BYTES = 10 * 1024 * 1024
 
@@ -108,7 +109,8 @@ async def current_member(user: dict = Depends(require_user)) -> dict:
         member = await db.users.find_one_and_update(
             {"user_id": uid},
             {"$setOnInsert": {"user_id": uid, "role": role, "email": email, "name": name, "display_name": name,
-                              "units": "metric", "created_at": now, "updated_at": now}},
+                              "units": "metric", "height_unit": "cm", "model": DEFAULT_MODEL,
+                              "onboarding_completed": False, "created_at": now, "updated_at": now}},
             upsert=True, projection={"_id": 0}, return_document=ReturnDocument.AFTER)
     await db.users.update_one({"user_id": uid}, {"$set": {"env": ENV, "last_active": now}})
     return {**member, "env": ENV, "last_active": now, "role": effective_role(member["role"])}
@@ -136,8 +138,11 @@ async def get_plan(uid: str) -> dict:
 
 
 def public_me(member: dict, plan: dict) -> dict:
-    keys = ["user_id", "role", "email", "name", "display_name", "units", "created_at", "updated_at", "last_active", "timezone"]
-    return {**{k: member.get(k) for k in keys}, "plan_name": plan["name"], "weekly_email": member.get("weekly_email", True)}
+    keys = ["user_id", "role", "email", "name", "display_name", "units", "created_at", "updated_at", "last_active", "timezone", "height_cm"]
+    return {**{k: member.get(k) for k in keys}, "plan_name": plan["name"], "weekly_email": member.get("weekly_email", True),
+            "height_unit": member.get("height_unit", "cm"), "model": member.get("model", DEFAULT_MODEL),
+            # Accounts created before onboarding existed count as completed.
+            "onboarding_completed": member.get("onboarding_completed", True)}
 
 
 # ---------- Models ----------
@@ -147,6 +152,10 @@ class MeUpdate(BaseModel):
     plan_name: Optional[str] = Field(None, min_length=1, max_length=60)
     timezone: Optional[str] = Field(None, max_length=64)
     weekly_email: Optional[bool] = None
+    height_cm: Optional[float] = Field(None, ge=100, le=250)
+    height_unit: Optional[str] = Field(None, pattern="^(cm|ftin)$")
+    model: Optional[str] = Field(None, pattern="^(model5)$")
+    onboarding_completed: Optional[bool] = None
 
 
 class DayIn(BaseModel):
@@ -188,6 +197,24 @@ class MeasurementIn(BaseModel):
     flexed: bool = False
     pumped: bool = False
     notes: str = Field("", max_length=500)
+
+
+class BulkEntry(BaseModel):
+    body_part: str
+    side: str
+    value_cm: float = Field(gt=0, le=400)
+
+
+class MeasurementBulkIn(BaseModel):
+    date: str
+    flexed: bool = False
+    pumped: bool = False
+    entries: List[BulkEntry] = Field(min_length=1, max_length=40)
+
+
+class BodyWeightIn(BaseModel):
+    weight_kg: float = Field(ge=25, le=350)
+    date: str
 
 
 # ---------- Athlete routes ----------
@@ -298,6 +325,42 @@ async def create_measurement(body: MeasurementIn, member: dict = Depends(current
     return doc
 
 
+@api_router.post("/measurements/bulk")
+async def create_measurements_bulk(body: MeasurementBulkIn, member: dict = Depends(current_member)):
+    day = validate_date(body.date)
+    if any(e.body_part not in BODY_PARTS or e.side not in SIDES for e in body.entries):
+        raise HTTPException(status_code=422, detail="Unknown body part or side")
+    now = now_iso()
+    docs = [{"id": str(uuid.uuid4()), "user_id": member["user_id"], "body_part": e.body_part, "side": e.side,
+             "value_cm": round(e.value_cm, 2), "date": day, "flexed": body.flexed, "pumped": body.pumped,
+             "notes": "", "created_at": now} for e in body.entries]
+    await db.measurements.insert_many([{**d} for d in docs])
+    await touch(member["user_id"])
+    return docs
+
+
+@api_router.get("/body-weights")
+async def list_body_weights(member: dict = Depends(current_member)):
+    return await db.body_weights.find({"user_id": member["user_id"]}, {"_id": 0}).sort([("date", -1), ("created_at", -1)]).to_list(5000)
+
+
+@api_router.post("/body-weights")
+async def add_body_weight(body: BodyWeightIn, member: dict = Depends(current_member)):
+    doc = {"id": str(uuid.uuid4()), "user_id": member["user_id"], "weight_kg": round(body.weight_kg, 2),
+           "date": validate_date(body.date), "created_at": now_iso()}
+    await db.body_weights.insert_one({**doc})
+    await touch(member["user_id"])
+    return doc
+
+
+@api_router.delete("/body-weights/{wid}")
+async def delete_body_weight(wid: str, member: dict = Depends(current_member)):
+    if (await db.body_weights.delete_one({"id": wid, "user_id": member["user_id"]})).deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Not found")
+    await touch(member["user_id"])
+    return {"ok": True}
+
+
 @api_router.delete("/measurements/{mid}")
 async def delete_measurement(mid: str, member: dict = Depends(current_member)):
     if (await db.measurements.delete_one({"id": mid, "user_id": member["user_id"]})).deleted_count == 0:
@@ -368,6 +431,7 @@ async def export_data(member: dict = Depends(current_member)):
         "measurements": await db.measurements.find({"user_id": uid}, {"_id": 0}).to_list(5000),
         "photos": await db.photos.find({"user_id": uid, "is_deleted": False}, PHOTO_FIELDS).to_list(2000),
         "goals": await db.goals.find({"user_id": uid}, {"_id": 0}).to_list(100),
+        "body_weights": await db.body_weights.find({"user_id": uid}, {"_id": 0}).to_list(5000),
     }
 
 
@@ -379,6 +443,7 @@ async def reset_data(member: dict = Depends(current_member)):
     await db.photos.update_many({"user_id": uid}, {"$set": {"is_deleted": True}})
     await db.plans.delete_one({"user_id": uid})
     await db.goals.delete_many({"user_id": uid})
+    await db.body_weights.delete_many({"user_id": uid})
     await get_plan(uid)
     await touch(uid)
     return {"ok": True}
@@ -570,6 +635,7 @@ async def startup():
     await db.workouts.create_index([("user_id", 1), ("date", -1)])
     await db.measurements.create_index([("user_id", 1), ("date", -1)])
     await db.photos.create_index([("user_id", 1), ("date", -1)])
+    await db.body_weights.create_index([("user_id", 1), ("date", -1)])
     await db.goals.create_index([("user_id", 1), ("body_part", 1), ("side", 1), ("flexed", 1), ("pumped", 1)], unique=True)
     try:
         await run_in_threadpool(storage.init_storage)

@@ -1,5 +1,21 @@
-export const BODY_PARTS = ["Arms", "Forearms", "Chest", "Shoulders", "Back", "Thighs", "Calves"];
+export const BODY_PARTS = ["Neck", "Shoulders", "Chest", "Back", "Waist", "Hips", "Glutes", "Arms", "Forearms", "Thighs", "Calves"];
 export const SIDES = ["Right", "Left", "Both", "Midline"];
+export const PART_LABEL = { Arms: "Upper arm" };
+export const partLabel = (p) => PART_LABEL[p] || p;
+const BILATERAL = ["Arms", "Forearms", "Thighs", "Calves"];
+export const defaultSide = (part) => (BILATERAL.includes(part) ? "Right" : "Midline");
+
+export const FULL_SET = [
+  ...["Neck", "Shoulders", "Chest", "Back", "Waist", "Hips", "Glutes"].map((p) => ({ body_part: p, side: "Midline" })),
+  ...BILATERAL.flatMap((p) => [{ body_part: p, side: "Left" }, { body_part: p, side: "Right" }]),
+];
+
+export const CONDITIONS = [
+  { id: "fp", label: "Flexed & pumped", flexed: true, pumped: true },
+  { id: "fu", label: "Flexed & unpumped", flexed: true, pumped: false },
+  { id: "up", label: "Unflexed & pumped", flexed: false, pumped: true },
+  { id: "uu", label: "Unflexed & unpumped", flexed: false, pumped: false },
+];
 
 export const TIPS = [
   "Leave 1–2 reps in reserve on compounds; take isolation work closer to failure.",

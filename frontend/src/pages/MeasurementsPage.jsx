@@ -3,18 +3,19 @@ import { Trash2, Save } from "lucide-react";
 import { toast } from "sonner";
 import { useApi, useMe, useMeasurements, useInvalidate, errMsg } from "../lib/api";
 import { displayToCm, fmtLen, lenUnit, fmtDate, todayISO, isValidPastDate } from "../lib/units";
-import { BODY_PARTS, SIDES } from "../lib/constants";
+import { BODY_PARTS, SIDES, CONDITIONS, FULL_SET, partLabel, defaultSide } from "../lib/constants";
+import { MeasurementSetForm, keyOf } from "../components/MeasurementSetForm";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { PageHeader, SectionTitle, Empty, Loading } from "../components/Bits";
 import { ConfirmAction } from "../components/ConfirmAction";
 
-const Pick = ({ label, value, onChange, options, testId }) => (
+const Pick = ({ label, value, onChange, options, testId, format = (o) => o }) => (
   <div>
     <div className="hc-label mb-2">{label}</div>
     <Select value={value} onValueChange={onChange}>
       <SelectTrigger data-testid={testId} className="h-12 rounded-xl border-hc-line bg-hc-bg text-base"><SelectValue /></SelectTrigger>
       <SelectContent className="border-hc-line bg-hc-card">
-        {options.map((o) => <SelectItem key={o} value={o} data-testid={`${testId}-option-${o.toLowerCase()}`}>{o}</SelectItem>)}
+        {options.map((o) => <SelectItem key={o} value={o} data-testid={`${testId}-option-${o.toLowerCase()}`}>{format(o)}</SelectItem>)}
       </SelectContent>
     </Select>
   </div>
@@ -60,7 +61,7 @@ const MeasurementForm = ({ units }) => {
 
   return (
     <form data-testid="measurement-form" onSubmit={submit} className="hc-card grid gap-4 p-4 sm:grid-cols-2 sm:p-6 lg:grid-cols-4">
-      <Pick label="Body part" value={f.body_part} onChange={(v) => set({ body_part: v })} options={BODY_PARTS} testId="measurement-body-part" />
+      <Pick label="Body part" value={f.body_part} onChange={(v) => set({ body_part: v, side: defaultSide(v) })} options={BODY_PARTS} format={partLabel} testId="measurement-body-part" />
       <Pick label="Side" value={f.side} onChange={(v) => set({ side: v })} options={SIDES} testId="measurement-side" />
       <div>
         <label className="hc-label mb-2 block" htmlFor="m-value">Value ({lenUnit(units)})</label>
@@ -81,12 +82,53 @@ const MeasurementForm = ({ units }) => {
   );
 };
 
+const FullSetCard = ({ units }) => {
+  const api = useApi();
+  const invalidate = useInvalidate();
+  const [condition, setCondition] = useState("fu");
+  const [values, setValues] = useState({});
+  const [date, setDate] = useState(todayISO());
+  const [saving, setSaving] = useState(false);
+
+  const save = async () => {
+    const filled = FULL_SET.filter((e) => values[keyOf(e)] !== undefined && values[keyOf(e)] !== "");
+    if (!filled.length) return toast.error("Fill in at least one measurement");
+    if (filled.some((e) => !(Number(values[keyOf(e)]) > 0))) return toast.error("Measurements must be above zero");
+    const dateErr = isValidPastDate(date);
+    if (dateErr) return toast.error(dateErr);
+    const c = CONDITIONS.find((x) => x.id === condition);
+    setSaving(true);
+    try {
+      await api.post("/measurements/bulk", { date, flexed: c.flexed, pumped: c.pumped, entries: filled.map((e) => ({ ...e, value_cm: displayToCm(Number(values[keyOf(e)]), units) })) });
+      await invalidate("measurements", "me", "goals");
+      toast.success(`${filled.length} measurements saved`);
+      setValues({});
+    } catch (e) {
+      toast.error(errMsg(e));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div data-testid="measurement-full-set" className="hc-card space-y-4 p-4 sm:p-6">
+      <div className="max-w-xs">
+        <label className="hc-label mb-2 block" htmlFor="fs-date">Date</label>
+        <input id="fs-date" data-testid="full-set-date-input" type="date" max={todayISO()} className="hc-input" value={date} onChange={(e) => setDate(e.target.value)} />
+      </div>
+      <MeasurementSetForm units={units} condition={condition} onCondition={setCondition} values={values} onValues={setValues} />
+      <button data-testid="full-set-save-button" disabled={saving} onClick={save} className="hc-btn w-full">{saving ? "Saving…" : "Save full set"}</button>
+    </div>
+  );
+};
+
 export default function MeasurementsPage() {
   const api = useApi();
   const invalidate = useInvalidate();
   const { data: me } = useMe();
   const { data: list } = useMeasurements();
   const [filter, setFilter] = useState("All");
+  const [mode, setMode] = useState("single");
   if (!me || !list) return <Loading />;
   const rows = filter === "All" ? list : list.filter((m) => m.body_part === filter);
 
@@ -103,12 +145,17 @@ export default function MeasurementsPage() {
   return (
     <div className="hc-rise space-y-8">
       <PageHeader eyebrow="Tape don't lie" title="Measurements" />
-      <MeasurementForm units={me.units} />
+      <div className="flex gap-2">
+        {[["single", "Single entry"], ["full", "Full set"]].map(([m, l]) => (
+          <button key={m} data-testid={`measurement-mode-${m}`} data-active={mode === m} onClick={() => setMode(m)} className="hc-chip">{l}</button>
+        ))}
+      </div>
+      {mode === "single" ? <MeasurementForm units={me.units} /> : <FullSetCard units={me.units} />}
       <section>
         <SectionTitle>History</SectionTitle>
         <div className="-mx-4 mb-4 flex gap-2 overflow-x-auto px-4 pb-1">
           {["All", ...BODY_PARTS].map((p) => (
-            <button key={p} data-testid={`measurement-filter-${p.toLowerCase()}`} data-active={filter === p} onClick={() => setFilter(p)} className="hc-chip shrink-0">{p}</button>
+            <button key={p} data-testid={`measurement-filter-${p.toLowerCase()}`} data-active={filter === p} onClick={() => setFilter(p)} className="hc-chip shrink-0">{partLabel(p)}</button>
           ))}
         </div>
         <div data-testid="measurement-history" className="space-y-2">
@@ -116,7 +163,7 @@ export default function MeasurementsPage() {
             <div key={m.id} data-testid="measurement-history-item" className="hc-card flex items-center gap-4 p-4">
               <div className="w-24 shrink-0 font-mono text-xl font-bold text-hc-lime">{fmtLen(m.value_cm, me.units)}</div>
               <div className="min-w-0 flex-1">
-                <div className="font-semibold">{m.body_part} · <span className="text-hc-muted">{m.side}</span></div>
+                <div className="font-semibold">{partLabel(m.body_part)} · <span className="text-hc-muted">{m.side}</span></div>
                 <div className="text-xs text-hc-muted">{fmtDate(m.date)} · {m.flexed ? "Flexed" : "Unflexed"} · {m.pumped ? "Pumped" : "Not pumped"}</div>
                 {m.notes && <div className="mt-1 truncate text-sm text-hc-muted">{m.notes}</div>}
               </div>

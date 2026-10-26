@@ -24,5 +24,5 @@ DEFAULT_DAYS = [
     {"id": "day-shoulders-arms", "name": "Shoulders & Arms", "exercise_ids": ["seated-db-press", "cable-lateral-raise", "barbell-curl", "overhead-triceps-ext"]},
 ]
 
-BODY_PARTS = ["Arms", "Forearms", "Chest", "Shoulders", "Back", "Thighs", "Calves"]
+BODY_PARTS = ["Neck", "Shoulders", "Chest", "Back", "Waist", "Hips", "Glutes", "Arms", "Forearms", "Thighs", "Calves"]
 SIDES = ["Right", "Left", "Both", "Midline"]

@@ -51,3 +51,25 @@ export const fmtClock = (s) => {
   const v = Math.max(0, Math.round(s));
   return `${Math.floor(v / 60)}:${String(v % 60).padStart(2, "0")}`;
 };
+
+export const HEIGHT_MIN_CM = 100;
+export const HEIGHT_MAX_CM = 250;
+
+export const cmToFtIn = (cm) => {
+  const total = cm / CM_PER_IN;
+  let ft = Math.floor(total / 12);
+  let inch = Math.round((total - ft * 12) * 10) / 10;
+  if (inch >= 12) { ft += 1; inch = 0; }
+  return { ft, inch };
+};
+
+export const ftInToCm = (ft, inch) => (ft * 12 + inch) * CM_PER_IN;
+
+export const fmtHeight = (cm, unit) => {
+  if (!cm) return "—";
+  if (unit === "ftin") {
+    const { ft, inch } = cmToFtIn(cm);
+    return `${ft} ft ${trim(inch)} in`;
+  }
+  return `${trim(cm)} cm`;
+};

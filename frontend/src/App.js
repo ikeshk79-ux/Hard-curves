@@ -15,6 +15,7 @@ import PhotosPage from "@/pages/PhotosPage";
 import ProfilePage from "@/pages/ProfilePage";
 import OwnerPage from "@/pages/OwnerPage";
 import OwnerAthletePage from "@/pages/OwnerAthletePage";
+import OnboardingPage from "@/pages/OnboardingPage";
 
 const Protected = ({ children }) => {
   const { pathname } = useLocation();
@@ -34,6 +35,7 @@ function App() {
         <Routes>
           <Route path="/sign-in/*" element={<SignInPage />} />
           <Route path="/sign-up/*" element={<SignUpPage />} />
+          <Route path="/welcome" element={<Protected><OnboardingPage /></Protected>} />
           <Route path="/owner" element={<Protected><OwnerPage /></Protected>} />
           <Route path="/owner/athletes/:userId" element={<Protected><OwnerAthletePage /></Protected>} />
           <Route element={<Protected><AppShell /></Protected>}>
