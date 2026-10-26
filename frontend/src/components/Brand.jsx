@@ -16,6 +16,7 @@ export const Brand = ({ size = "md", onLongPress, testId = "brand-logo" }) => {
       onPointerDown={start}
       onPointerUp={stop}
       onPointerLeave={stop}
+      onPointerCancel={stop}
       onContextMenu={(e) => onLongPress && e.preventDefault()}
     >
       <span className={`grid place-items-center rounded-lg bg-hc-lime text-hc-ink ${big ? "h-14 w-14" : "h-9 w-9"}`}>

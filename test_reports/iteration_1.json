@@ -1,0 +1,41 @@
+{
+  "summary": "Full backend + frontend test of Hard Curves. Backend: 21 pytest cases (auth 401 on 11 routes, per-user isolation, PR logic incl. first-log/incomplete/equal-load, date validation incl 2026-02-30/future/1900, photo ext/size/isolation/admin fetch/soft delete, owner 403/200 + regex-escape search, role in PATCH ignored, export, reset) all pass. Frontend (ticket sign-in): Home widgets, session persists on reload, Training plan edit (rename plan/day, toggle chips, remove/add day, persist after reload, empty-name validation), Log workout (load plan day, load/reps/RIR, tick -> rest timer, +15/-15/Skip, Rest over + dismiss, completed switch, Clear, PR dialog with Download (PNG downloaded) & Share), Measurements add/filter/delete with confirm/cancel + future date blocked, Progress stats + like-for-like bar chart + volume chart + Share PR from records, Photos upload x2, select 2 -> compare (49 days between, that day's measurements), delete, Profile name/units (cm/kg <-> in/lb verified on measurements & workout volume), export JSON, reset with confirm, sign out -> /sign-in, member /owner -> Access refused, owner dashboard stats/search/empty state/athlete detail/photo viewer/back link, long-press logo -> /sign-in?redirect_url=/owner with owner tagline, mobile 390px bottom nav + rest timer not overlapping nav. One real mobile UX bug found (rest timer covers Save button).",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/photos", "issue": "Type check is extension-only (no magic-byte/content sniffing) and whole file is read into memory before the 10MB check. Any bytes named .png are accepted and served as image/png."},
+      {"endpoint": "DELETE /api/photos/{id} & POST /api/reset", "issue": "Soft delete only (object stays in storage, record kept with is_deleted) while UI says 'The photo will be removed for good' — privacy copy mismatch for private body photos."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "LogWorkoutPage + RestTimer (mobile 390px)", "issue": "When rest timer is active and user scrolls to bottom, the fixed timer (top=684px) covers the lower part of the Save workout button (button 643-699px). main has pb-32 which is not enough for bottom nav + timer. Add extra bottom padding (e.g. pb-56) on log page while timer is visible.", "selector": "[data-testid='save-workout-button'], [data-testid='rest-timer']", "priority": "MEDIUM"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Progress - measurement chart", "issues": ["Bar chart Y axis does not start at 0 (43.5cm baseline) which exaggerates differences for bars; consider domain starting at 0 or using a line chart"]},
+      {"screen": "Home / Training history", "issues": ["Pluralization: '1 sets'"]},
+      {"screen": "Measurements future date", "issues": ["Future date is blocked by native browser max-date validation bubble (form submit) rather than the app's toast; works, but inconsistent with Log workout which shows a toast"]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_hard_curves_api.py", "/app/test_reports/pytest/pytest_results.xml"],
+  "action_items": [
+    "Mobile: add extra bottom padding on /log while rest timer is visible so Save workout button is not covered",
+    "Photo delete/reset: either hard-delete storage object or change copy 'removed for good'",
+    "Optional: content sniff uploaded images; stream size check",
+    "Optional: zero-based Y axis for measurement bar chart; fix '1 sets' pluralization"
+  ],
+  "critical_code_review_comments": [
+    "server.py validate_date allows today+1 (UTC tolerance) while frontend uses local today — OK but document it",
+    "Brand long-press uses pointerleave to cancel; layout shift while Clerk widget mounts can cancel the press (first attempt during load did not navigate, second after load worked)",
+    "TrainingPage DayEditor key falls back to index for new days without id — can cause input state mix-ups when removing a new day before another new day",
+    "List endpoints return up to 2000-5000 docs without pagination (fine for MVP)"
+  ],
+  "updated_files": ["/app/backend/tests/test_hard_curves_api.py", "/app/memory/test_credentials.md"],
+  "success_rate": {"backend": "100% (21/21)", "frontend": "97% (1 mobile layout bug)"},
+  "test_credentials": "test_credentials.md was empty; added the 3 Clerk test users (athlete=member, athlete2=member, owner=admin). Sign in via ticket only.",
+  "seed_data_creation": "athlete2 (Ben) was reset multiple times; final state: reset to defaults (units metric, display name Ben, default plan). Alex data untouched (only viewed).",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Run pytest with `-n 0` (pytest.ini enables xdist; tests reset athlete2 at session start so must run serially). Tickets are one-time: regenerate via clerk_tokens.py tickets for each browser session. Server/browser clock is 2026-10-26."
+}

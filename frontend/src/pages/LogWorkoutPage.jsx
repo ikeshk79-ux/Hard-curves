@@ -126,7 +126,7 @@ export default function LogWorkoutPage() {
   };
 
   return (
-    <div className="hc-rise space-y-6">
+    <div className={`hc-rise space-y-6 ${rest.timer ? "pb-28" : ""}`}>
       <PageHeader eyebrow="Session" title="Log workout">
         <button data-testid="log-discard-button" onClick={discard} className="hc-btn-ghost h-11 text-sm">Clear</button>
       </PageHeader>

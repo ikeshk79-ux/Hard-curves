@@ -137,7 +137,7 @@ export default function PhotosPage() {
                     <div className="text-sm font-semibold">{fmtDate(p.date)}</div>
                     {p.note && <div className="truncate text-xs text-hc-muted">{p.note}</div>}
                   </div>
-                  <ConfirmAction testId="photo-delete" title="Delete photo?" description="The photo will be removed for good." onConfirm={() => remove(p.id)}
+                  <ConfirmAction testId="photo-delete" title="Delete photo?" description="The photo will be removed from your gallery and no one, including the owner, will be able to see it in the app." onConfirm={() => remove(p.id)}
                     trigger={<button data-testid="photo-delete-button" className="grid h-10 w-10 place-items-center rounded-xl border border-hc-line text-hc-muted hover:text-red-400" aria-label="Delete photo"><Trash2 className="h-4 w-4" /></button>} />
                 </div>
               </div>

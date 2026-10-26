@@ -68,7 +68,7 @@ export default function HomePage() {
                 <div key={w.id} data-testid="recent-workout-item" className="hc-card flex items-center justify-between p-4">
                   <div>
                     <div className="font-semibold">{w.name}</div>
-                    <div className="text-xs text-hc-muted">{fmtDate(w.date)} · {w.set_count} sets · {w.completed ? "Completed" : "In progress"}</div>
+                    <div className="text-xs text-hc-muted">{fmtDate(w.date)} · {w.set_count} {w.set_count === 1 ? "set" : "sets"} · {w.completed ? "Completed" : "In progress"}</div>
                   </div>
                   <div className="font-mono text-sm text-hc-lime">{fmtVolume(w.volume || 0, units)}</div>
                 </div>

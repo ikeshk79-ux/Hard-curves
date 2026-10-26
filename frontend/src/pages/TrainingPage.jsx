@@ -58,7 +58,7 @@ const PlanEditor = ({ plan, exercises }) => {
         ))}
       </div>
       <div className="mt-4 flex flex-col gap-3 sm:flex-row">
-        <button data-testid="plan-add-day-button" onClick={() => setDays([...days, { name: `Day ${days.length + 1}`, exercise_ids: [] }])} className="hc-btn-ghost"><Plus className="h-4 w-4" />Add day</button>
+        <button data-testid="plan-add-day-button" onClick={() => setDays([...days, { id: `day-${Math.random().toString(36).slice(2, 10)}`, name: `Day ${days.length + 1}`, exercise_ids: [] }])} className="hc-btn-ghost"><Plus className="h-4 w-4" />Add day</button>
         <button data-testid="plan-save-button" disabled={saving} onClick={save} className="hc-btn sm:ml-auto"><Save className="h-4 w-4" />{saving ? "Saving…" : "Save plan"}</button>
       </div>
     </div>
@@ -91,7 +91,7 @@ const HistoryItem = ({ w, units }) => {
       <button data-testid="workout-history-toggle" onClick={() => setOpen(!open)} className="flex w-full items-center justify-between gap-3 p-4 text-left">
         <div>
           <div className="font-semibold">{w.name}</div>
-          <div className="text-xs text-hc-muted">{fmtDate(w.date)} · {w.set_count} sets · {w.completed ? "Completed" : "Not completed"}</div>
+          <div className="text-xs text-hc-muted">{fmtDate(w.date)} · {w.set_count} {w.set_count === 1 ? "set" : "sets"} · {w.completed ? "Completed" : "Not completed"}</div>
         </div>
         <div className="flex items-center gap-3">
           <span className="font-mono text-sm text-hc-lime">{fmtVolume(w.volume || 0, units)}</span>

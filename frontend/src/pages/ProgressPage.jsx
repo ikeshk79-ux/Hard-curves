@@ -42,7 +42,7 @@ const MeasurementChart = ({ measurements, units }) => {
             <BarChart data={data}>
               <CartesianGrid stroke="#2B2E34" vertical={false} />
               <XAxis dataKey="date" stroke="#8E949E" fontSize={12} tickLine={false} />
-              <YAxis stroke="#8E949E" fontSize={12} tickLine={false} domain={["dataMin - 1", "dataMax + 1"]} unit={` ${lenUnit(units)}`} width={64} />
+              <YAxis stroke="#8E949E" fontSize={12} tickLine={false} domain={[0, "auto"]} unit={` ${lenUnit(units)}`} width={64} />
               <Tooltip contentStyle={tooltipStyle} cursor={{ fill: "#22252B" }} formatter={(v) => [`${v} ${lenUnit(units)}`, part]} />
               <Bar dataKey="value" fill="#C8F169" radius={[6, 6, 0, 0]} />
             </BarChart>

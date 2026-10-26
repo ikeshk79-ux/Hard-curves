@@ -46,6 +46,11 @@ PHOTO_TYPES = {"jpg": "image/jpeg", "jpeg": "image/jpeg", "png": "image/png", "w
 MAX_PHOTO_BYTES = 10 * 1024 * 1024
 
 
+def looks_like_image(data: bytes) -> bool:
+    return (data.startswith(b"\xff\xd8\xff") or data.startswith(b"\x89PNG")
+            or (data[:4] == b"RIFF" and data[8:12] == b"WEBP") or data[4:8] == b"ftyp")
+
+
 def now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
@@ -328,8 +333,8 @@ async def upload_photo(file: UploadFile = File(...), date: str = Form(...), note
     data = await file.read()
     if len(data) > MAX_PHOTO_BYTES:
         raise HTTPException(status_code=413, detail="Photo must be 10 MB or smaller")
-    if not data:
-        raise HTTPException(status_code=422, detail="Empty file")
+    if not looks_like_image(data):
+        raise HTTPException(status_code=422, detail="That file is not a valid image")
     day = validate_date(date)
     content_type = PHOTO_TYPES[ext]
     path = f"{storage.APP_NAME}/photos/{member['user_id']}/{uuid.uuid4()}.{ext}"
